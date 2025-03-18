@@ -5,6 +5,7 @@ from SCons.Variables import BoolVariable
 
 def options(opts):
     opts.Add(BoolVariable("use_llvm", "Use the LLVM compiler - only effective when targeting Linux", False))
+    opts.Add(BoolVariable("use_static_cpp", "Link libgcc and libstdc++ statically for better portability", True))
 
 
 def exists(env):
@@ -74,6 +75,10 @@ def generate(env):
         env.Append(CPPDEFINES=["IS_32_BIT"])
         env.Append(CCFLAGS=["-march=2.0", "-mlong-calls"])
         env.Append(LINKFLAGS=["-Wl,-z,norelro"])
+
+    # Link statically for portability
+    if env["use_static_cpp"]:
+        env.Append(LINKFLAGS=["-static-libgcc", "-static-libstdc++"])
 
     env.Append(CPPDEFINES=["LINUX_ENABLED", "UNIX_ENABLED"])
 
