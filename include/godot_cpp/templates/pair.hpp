@@ -31,6 +31,8 @@
 #ifndef GODOT_PAIR_HPP
 #define GODOT_PAIR_HPP
 
+#include <godot_cpp/templates/hashfuncs.hpp>
+
 namespace godot {
 
 template <typename F, typename S>
