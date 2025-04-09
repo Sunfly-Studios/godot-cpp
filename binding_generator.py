@@ -1370,7 +1370,7 @@ def generate_engine_classes_bindings(api, output_dir, use_template_get_node):
                                         fully_used_classes.add(dict_type_name)
                                     else:
                                         used_classes.add(dict_type_name)
-                                dict_type_name = dict_type_names[2]
+                                dict_type_name = dict_type_names[1]
                                 if dict_type_name.endswith("*"):
                                     dict_type_name = dict_type_name[:-1]
                                 if is_included(dict_type_name, class_name):
@@ -1425,7 +1425,7 @@ def generate_engine_classes_bindings(api, output_dir, use_template_get_node):
                                     fully_used_classes.add(dict_type_name)
                                 else:
                                     used_classes.add(dict_type_name)
-                            dict_type_name = dict_type_names[2]
+                            dict_type_name = dict_type_names[1]
                             if dict_type_name.endswith("*"):
                                 dict_type_name = dict_type_name[:-1]
                             if is_included(dict_type_name, class_name):
@@ -1942,7 +1942,7 @@ def generate_engine_class_source(class_api, used_classes, fully_used_classes, us
 
             if has_return:
                 result.append(
-                    f'\tCHECK_METHOD_BIND_RET(_gde_method_bind, {get_default_value_for_type(method["return_value"]["type"])});'
+                    f'\tCHECK_METHOD_BIND_RET(_gde_method_bind, ({get_default_value_for_type(method["return_value"]["type"])}));'
                 )
             else:
                 result.append("\tCHECK_METHOD_BIND(_gde_method_bind);")
@@ -2250,7 +2250,7 @@ def generate_utility_functions(api, output_dir):
         has_return = "return_type" in function and function["return_type"] != "void"
         if has_return:
             source.append(
-                f'\tCHECK_METHOD_BIND_RET(_gde_function, {get_default_value_for_type(function["return_type"])});'
+                f'\tCHECK_METHOD_BIND_RET(_gde_function, ({get_default_value_for_type(function["return_type"])}));'
             )
         else:
             source.append("\tCHECK_METHOD_BIND(_gde_function);")
