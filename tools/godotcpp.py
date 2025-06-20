@@ -177,8 +177,12 @@ architecture_array = [
     "ppc32",
     "ppc64",
     "wasm32",
+    "loongarch64",
+    "sparc64",
+    "mips64"
 ]
 architecture_aliases = {
+    "x86": "x86_32",
     "x64": "x86_64",
     "amd64": "x86_64",
     "armv7": "arm32",
@@ -191,6 +195,13 @@ architecture_aliases = {
     "ppcle": "ppc32",
     "ppc": "ppc32",
     "ppc64le": "ppc64",
+    "loong64": "loongarch64",
+    "sparc": "sparc64",
+    "sparcv9": "sparc64",
+    "sun4v": "sparc64",
+    "mips64": "mips64",
+    "mips64le": "mips64",
+    "mipsel64": "mips64",
 }
 
 

@@ -36,6 +36,26 @@ def generate(env):
     elif env["arch"] == "rv64":
         env.Append(CCFLAGS=["-march=rv64gc"])
         env.Append(LINKFLAGS=["-march=rv64gc"])
+    elif env["arch"] == "loongarch64":
+        env.Append(CCFLAGS=["-march=loongarch64", "-mabi=lp64d"])
+        env.Append(LINKFLAGS=["-march=loongarch64", "-mabi=lp64d"])
+    elif env["arch"] == "sparc64":
+        env.Append(CCFLAGS=["-mcpu=v9", "-m64"])
+        env.Append(LINKFLAGS=["-mcpu=v9", "-m64"])
+    elif env["arch"] == "mips64":
+        env.Append(
+            CCFLAGS=[
+                "-march=mips64r2",
+                "-mabi=64",
+                "-mlong-calls",
+                "-mxgot",
+                "-ffunction-sections",
+                "-fdata-sections",
+                "-fPIC",
+            ]
+        )
+        env.Append(CCFLAGS=["-fno-inline", "-fno-inline-functions"])
+        env.Append(LINKFLAGS=["-march=mips64r2", "-mabi=64"])
 
     env.Append(CPPDEFINES=["LINUX_ENABLED", "UNIX_ENABLED"])
 
