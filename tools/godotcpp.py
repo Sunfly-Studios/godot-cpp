@@ -179,7 +179,8 @@ architecture_array = [
     "wasm32",
     "loongarch64",
     "sparc64",
-    "mips64"
+    "mips64",
+    "alpha",
 ]
 architecture_aliases = {
     "x86": "x86_32",
@@ -202,6 +203,8 @@ architecture_aliases = {
     "mips64": "mips64",
     "mips64le": "mips64",
     "mipsel64": "mips64",
+    "alpha64": "alpha",
+    "decalpha": "alpha"
 }
 
 
