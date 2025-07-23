@@ -59,7 +59,7 @@ def generate(env):
     elif env["arch"] == "alpha":
         env.Append(
             CCFLAGS=[
-                "-mcpu=ev56",
+                "-mcpu=ev5",
                 "-mieee",
                 "-mbuild-constants",
                 "-mlarge-data",
