@@ -45,7 +45,7 @@ def generate(env):
     elif env["arch"] == "mips64":
         env.Append(
             CCFLAGS=[
-                "-march=mips64",
+                "-march=mips3",
                 "-mabi=64",
                 "-mlong-calls",
                 "-mxgot",
@@ -55,7 +55,7 @@ def generate(env):
             ]
         )
         env.Append(CCFLAGS=["-fno-inline", "-fno-inline-functions"])
-        env.Append(LINKFLAGS=["-march=mips64r2", "-mabi=64"])
+        env.Append(LINKFLAGS=["-march=mips3", "-mabi=64"])
     elif env["arch"] == "alpha":
         env.Append(
             CCFLAGS=[
