@@ -38,17 +38,42 @@ def generate(env):
         env.Append(CCFLAGS=["-sUSE_PTHREADS=1"])
         env.Append(LINKFLAGS=["-sUSE_PTHREADS=1"])
 
+        # Lowest browsers that can be targeted because these have
+        # DedicatedWorkerGlobalScope.name parameter for threading support
+        env.Append(LINKFLAGS=["-sMIN_FIREFOX_VERSION=79"])
+        env.Append(LINKFLAGS=["-sMIN_CHROME_VERSION=75"])
+        env.Append(LINKFLAGS=["-sMIN_SAFARI_VERSION=150000"])
+    else:
+        # These are the browsers that provide enough
+        # _practical_ support. As in, what can Emscripten
+        # realistically support.
+        # While lower browsers could be targeted, those came
+        # long before WASM became a standard, which was in 2017.
+        # Except for Firefox. I set 55 (2017) but it didn't support
+        # ReadableStreaming until 65 from 2019.
+        env.Append(LINKFLAGS=["-sMIN_FIREFOX_VERSION=65"])
+        env.Append(LINKFLAGS=["-sMIN_CHROME_VERSION=70"])
+        env.Append(LINKFLAGS=["-sMIN_SAFARI_VERSION=120200"])
+
     # Build as side module (shared library).
     env.Append(CCFLAGS=["-sSIDE_MODULE=1"])
     env.Append(LINKFLAGS=["-sSIDE_MODULE=1"])
 
-    # Enable WebAssembly BigInt <-> i64 conversion.
-    # This must match the flag used to build Godot (true in official builds since 4.3)
-    env.Append(LINKFLAGS=["-sWASM_BIGINT"])
+    # Disable WebAssembly BigInt <-> i64 conversion.
+    env.Append(LINKFLAGS=["-sWASM_BIGINT=0"])
 
-    # Force wasm longjmp mode.
-    env.Append(CCFLAGS=["-sSUPPORT_LONGJMP='wasm'"])
-    env.Append(LINKFLAGS=["-sSUPPORT_LONGJMP='wasm'"])
+    # Force emscripten longjmp mode.
+    env.Append(CCFLAGS=["-sSUPPORT_LONGJMP='emscripten'"])
+    env.Append(LINKFLAGS=["-sSUPPORT_LONGJMP='emscripten'"])
+
+    # Enable LEGACY_VM_SUPPORT for older JS engines,
+    # but still keep WASM enabled because it is a hard requirement
+    # for Godot.
+    env.Append(LINKFLAGS=["-sLEGACY_VM_SUPPORT=1"])
+    env.Append(LINKFLAGS=["-sWASM=1"])
+
+    # Add polyfill for older browsers.
+    env.Append(LINKFLAGS=["-sPOLYFILL_OLD_MATH_FUNCTIONS=1"])
 
     env.Append(CPPDEFINES=["WEB_ENABLED", "UNIX_ENABLED"])
 

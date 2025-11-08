@@ -24,7 +24,7 @@ def exists(env):
 
 # This must be kept in sync with the value in https://github.com/godotengine/godot/blob/master/platform/android/detect.py#L58.
 def get_ndk_version():
-    return "23.2.8568313"
+    return "28.1.13356709"
 
 
 def get_android_ndk_root(env):
@@ -79,7 +79,7 @@ def generate(env):
             "march": "armv7-a",
             "target": "armv7a-linux-androideabi",
             "compiler_path": "armv7a-linux-androideabi",
-            "ccflags": ["-mfpu=neon"],
+            "ccflags": ["-mfpu=neon", "-march=armv7-a", "-mfloat-abi=softfp"],
         },
         "arm64": {
             "march": "armv8-a",

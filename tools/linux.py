@@ -40,8 +40,8 @@ def generate(env):
         env.Append(CCFLAGS=["-march=loongarch64", "-mabi=lp64d"])
         env.Append(LINKFLAGS=["-march=loongarch64", "-mabi=lp64d"])
     elif env["arch"] == "sparc64":
-        env.Append(CCFLAGS=["-mcpu=v9", "-m64"])
-        env.Append(LINKFLAGS=["-mcpu=v9", "-m64"])
+        env.Append(CCFLAGS=["-mcpu=ultrasparc", "-m64"])
+        env.Append(LINKFLAGS=["-mcpu=ultrasparc", "-m64"])
     elif env["arch"] == "mips64":
         env.Append(
             CCFLAGS=[
