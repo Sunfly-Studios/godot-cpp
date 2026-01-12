@@ -33,6 +33,9 @@ def generate(env):
     elif env["arch"] == "arm64":
         env.Append(CCFLAGS=["-march=armv8-a"])
         env.Append(LINKFLAGS=["-march=armv8-a"])
+    elif env["arch"] == "arm32":
+        env.Append(CCFLAGS=["-march=armv7-a"])
+        env.Append(LINKFLAGS=["-march=armv7-a"])
     elif env["arch"] == "rv64":
         env.Append(CCFLAGS=["-march=rv64gc"])
         env.Append(LINKFLAGS=["-march=rv64gc"])
