@@ -70,6 +70,9 @@ def generate(env):
             ]
         )
         env.Append(LINKFLAGS=["-Wl,--no-relax", "-mlarge-data"])
+    elif env["arch"] == "hppa":
+        env.Append(CCFLAGS=["-march=2.0", "-mlong-calls"])
+        env.Append(LINKFLAGS=["-Wl,-z,norelro"])
 
     env.Append(CPPDEFINES=["LINUX_ENABLED", "UNIX_ENABLED"])
 
