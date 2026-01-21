@@ -44,87 +44,101 @@
 namespace godot {
 
 struct PropertyInfo {
-	Variant::Type type = Variant::NIL;
-	StringName name;
-	StringName class_name;
-	uint32_t hint = PROPERTY_HINT_NONE;
-	String hint_string;
-	uint32_t usage = PROPERTY_USAGE_DEFAULT;
+    Variant::Type type = Variant::NIL;
+    StringName name;
+    StringName class_name;
+    uint32_t hint = PROPERTY_HINT_NONE;
+    String hint_string;
+    uint32_t usage = PROPERTY_USAGE_DEFAULT;
 
-	PropertyInfo() = default;
+    // Helper to safely load objects from potentially unaligned pointers
+    template <typename T>
+    static _FORCE_INLINE_ T _safe_load(const void *p_ptr) {
+        alignas(alignof(T)) uint8_t buf[sizeof(T)];
+        memcpy(buf, p_ptr, sizeof(T));
+        return *reinterpret_cast<const T *>(buf);
+    }
 
-	PropertyInfo(Variant::Type p_type, const StringName &p_name, PropertyHint p_hint = PROPERTY_HINT_NONE, const String &p_hint_string = "", uint32_t p_usage = PROPERTY_USAGE_DEFAULT, const StringName &p_class_name = "") :
-			type(p_type),
-			name(p_name),
-			hint(p_hint),
-			hint_string(p_hint_string),
-			usage(p_usage) {
-		if (hint == PROPERTY_HINT_RESOURCE_TYPE) {
-			class_name = hint_string;
-		} else {
-			class_name = p_class_name;
-		}
-	}
+    PropertyInfo() = default;
 
-	PropertyInfo(GDExtensionVariantType p_type, const StringName &p_name, PropertyHint p_hint = PROPERTY_HINT_NONE, const String &p_hint_string = "", uint32_t p_usage = PROPERTY_USAGE_DEFAULT, const StringName &p_class_name = "") :
-			PropertyInfo((Variant::Type)p_type, p_name, p_hint, p_hint_string, p_usage, p_class_name) {}
+    PropertyInfo(Variant::Type p_type, const StringName &p_name, PropertyHint p_hint = PROPERTY_HINT_NONE, const String &p_hint_string = "", uint32_t p_usage = PROPERTY_USAGE_DEFAULT, const StringName &p_class_name = "") :
+            type(p_type),
+            name(p_name),
+            hint(p_hint),
+            hint_string(p_hint_string),
+            usage(p_usage) {
+        if (hint == PROPERTY_HINT_RESOURCE_TYPE) {
+            class_name = hint_string;
+        } else {
+            class_name = p_class_name;
+        }
+    }
 
-	PropertyInfo(const GDExtensionPropertyInfo *p_info) :
-			PropertyInfo(p_info->type, *reinterpret_cast<StringName *>(p_info->name), (PropertyHint)p_info->hint, *reinterpret_cast<String *>(p_info->hint_string), p_info->usage, *reinterpret_cast<StringName *>(p_info->class_name)) {}
+    PropertyInfo(GDExtensionVariantType p_type, const StringName &p_name, PropertyHint p_hint = PROPERTY_HINT_NONE, const String &p_hint_string = "", uint32_t p_usage = PROPERTY_USAGE_DEFAULT, const StringName &p_class_name = "") :
+            PropertyInfo((Variant::Type)p_type, p_name, p_hint, p_hint_string, p_usage, p_class_name) {}
 
-	operator Dictionary() const {
-		Dictionary dict;
-		dict["name"] = name;
-		dict["class_name"] = class_name;
-		dict["type"] = type;
-		dict["hint"] = hint;
-		dict["hint_string"] = hint_string;
-		dict["usage"] = usage;
-		return dict;
-	}
+    PropertyInfo(const GDExtensionPropertyInfo *p_info) :
+            PropertyInfo(p_info->type, 
+                _safe_load<StringName>(p_info->name), 
+                (PropertyHint)p_info->hint, 
+                _safe_load<String>(p_info->hint_string), 
+                p_info->usage, 
+                _safe_load<StringName>(p_info->class_name)) {}
 
-	static PropertyInfo from_dict(const Dictionary &p_dict) {
-		PropertyInfo pi;
-		if (p_dict.has("type")) {
-			pi.type = Variant::Type(int(p_dict["type"]));
-		}
-		if (p_dict.has("name")) {
-			pi.name = p_dict["name"];
-		}
-		if (p_dict.has("class_name")) {
-			pi.class_name = p_dict["class_name"];
-		}
-		if (p_dict.has("hint")) {
-			pi.hint = PropertyHint(int(p_dict["hint"]));
-		}
-		if (p_dict.has("hint_string")) {
-			pi.hint_string = p_dict["hint_string"];
-		}
-		if (p_dict.has("usage")) {
-			pi.usage = p_dict["usage"];
-		}
-		return pi;
-	}
+    operator Dictionary() const {
+        Dictionary dict;
+        dict["name"] = name;
+        dict["class_name"] = class_name;
+        dict["type"] = type;
+        dict["hint"] = hint;
+        dict["hint_string"] = hint_string;
+        dict["usage"] = usage;
+        return dict;
+    }
 
-	void _update(GDExtensionPropertyInfo *p_info) {
-		p_info->type = (GDExtensionVariantType)type;
-		*(reinterpret_cast<StringName *>(p_info->name)) = name;
-		p_info->hint = hint;
-		*(reinterpret_cast<String *>(p_info->hint_string)) = hint_string;
-		p_info->usage = usage;
-		*(reinterpret_cast<StringName *>(p_info->class_name)) = class_name;
-	}
+    static PropertyInfo from_dict(const Dictionary &p_dict) {
+        PropertyInfo pi;
+        if (p_dict.has("type")) {
+            pi.type = Variant::Type(int(p_dict["type"]));
+        }
+        if (p_dict.has("name")) {
+            pi.name = p_dict["name"];
+        }
+        if (p_dict.has("class_name")) {
+            pi.class_name = p_dict["class_name"];
+        }
+        if (p_dict.has("hint")) {
+            pi.hint = PropertyHint(int(p_dict["hint"]));
+        }
+        if (p_dict.has("hint_string")) {
+            pi.hint_string = p_dict["hint_string"];
+        }
+        if (p_dict.has("usage")) {
+            pi.usage = p_dict["usage"];
+        }
+        return pi;
+    }
 
-	GDExtensionPropertyInfo _to_gdextension() const {
-		return {
-			(GDExtensionVariantType)type,
-			name._native_ptr(),
-			class_name._native_ptr(),
-			hint,
-			hint_string._native_ptr(),
-			usage,
-		};
-	}
+    void _update(GDExtensionPropertyInfo *p_info) {
+        p_info->type = (GDExtensionVariantType)type;
+        // p_info->name is a void*, we write the StringName object into that address
+        memcpy(p_info->name, &name, sizeof(StringName));
+        p_info->hint = hint;
+        memcpy(p_info->hint_string, &hint_string, sizeof(String));
+        p_info->usage = usage;
+        memcpy(p_info->class_name, &class_name, sizeof(StringName));
+    }
+
+    GDExtensionPropertyInfo _to_gdextension() const {
+        return {
+            (GDExtensionVariantType)type,
+            name._native_ptr(),
+            class_name._native_ptr(),
+            hint,
+            hint_string._native_ptr(),
+            usage,
+        };
+    }
 };
 
 } // namespace godot
