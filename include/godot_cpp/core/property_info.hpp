@@ -54,7 +54,7 @@ struct PropertyInfo {
     // Helper to safely load objects from potentially unaligned pointers
     template <typename T>
     static _FORCE_INLINE_ T _safe_load(const void *p_ptr) {
-        alignas(alignof(T)) uint8_t buf[sizeof(T)];
+        alignas(alignof(T)) uint8_t buf[sizeof(T)] = {};
         memcpy(buf, p_ptr, sizeof(T));
         return *reinterpret_cast<const T *>(buf);
     }

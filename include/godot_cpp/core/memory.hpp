@@ -39,6 +39,7 @@
 #include <godot_cpp/godot.hpp>
 
 #include <type_traits>
+#include <functional> // for std::less
 
 // p_dummy argument is added to avoid conflicts with the engine functions when both engine and GDExtension are built as a static library on iOS.
 void *operator new(size_t p_size, const char *p_dummy, const char *p_description); ///< operator new that takes a description and uses MemoryStaticPool
@@ -120,7 +121,9 @@ _ALWAYS_INLINE_ T *_post_initialize(T *p_obj) {
 // Generic comparator used in Map, List, etc.
 template <typename T>
 struct Comparator {
-	_ALWAYS_INLINE_ bool operator()(const T &p_a, const T &p_b) const { return (p_a < p_b); }
+	_ALWAYS_INLINE_ bool operator()(const T &p_a, const T &p_b) const {
+		return std::less<T>{}(p_a, p_b);
+	}
 };
 
 template <typename T>

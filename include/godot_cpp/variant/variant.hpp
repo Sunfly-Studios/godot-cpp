@@ -279,8 +279,10 @@ public:
 	Variant call(const StringName &method, Args... args) {
 		std::array<Variant, sizeof...(args)> vargs = { args... };
 		std::array<const Variant *, sizeof...(args)> argptrs;
-		for (size_t i = 0; i < vargs.size(); i++) {
-			argptrs[i] = &vargs[i];
+		if constexpr (sizeof...(args) > 0) {
+			for (size_t i = 0; i < vargs.size(); i++) {
+				argptrs[i] = &vargs[i];
+			}
 		}
 		Variant result;
 		GDExtensionCallError error;
@@ -294,8 +296,10 @@ public:
 	static Variant call_static(Variant::Type type, const StringName &method, Args... args) {
 		std::array<Variant, sizeof...(args)> vargs = { args... };
 		std::array<const Variant *, sizeof...(args)> argptrs;
-		for (size_t i = 0; i < vargs.size(); i++) {
-			argptrs[i] = &vargs[i];
+		if constexpr (sizeof...(args) > 0) {
+			for (size_t i = 0; i < vargs.size(); i++) {
+				argptrs[i] = &vargs[i];
+			}
 		}
 		Variant result;
 		GDExtensionCallError error;

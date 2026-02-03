@@ -51,6 +51,13 @@ if scons_cache_path is not None:
     CacheDir(platform_cache_path)
     Decider("MD5")
 
+# Catches x86_32, arm32, ppc32, and wasm32.
+# The most common ones.
+# Other architectures like HPPA must set this manually.
+# TODO: Maybe automate this.
+if env["arch"].endswith("32"):
+    env.Append(CPPDEFINES=["IS_32_BIT"])
+
 cpp_tool.generate(env)
 library = env.GodotCPP()
 

@@ -125,6 +125,11 @@ def generate(env):
                 env["CC"] = "clang-cl"
                 env["CXX"] = "clang-cl"
 
+            if env["arch"] == "x86_32":
+                # Force clang-cl to 32-bit mode
+                env.Append(CCFLAGS=["-m32"])
+                env.Append(LINKFLAGS=["-m32"])
+
         if env["debug_crt"]:
             # Always use dynamic runtime, static debug CRT breaks thread_local.
             env.AppendUnique(CCFLAGS=["/MDd"])
