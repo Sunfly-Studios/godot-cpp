@@ -41,6 +41,12 @@
 #include <type_traits>
 #include <functional> // for std::less
 
+// Define a safe minimum alignment.
+// "16" is the Goldilocks for SSE/NEON/128-bit SIMD,
+// as well as having a mathematical guarantee
+// to be divisible by 8 (or 4, or 2).
+#define GODOT_MIN_STACK_ALIGN 16
+
 // p_dummy argument is added to avoid conflicts with the engine functions when both engine and GDExtension are built as a static library on iOS.
 void *operator new(size_t p_size, const char *p_dummy, const char *p_description); ///< operator new that takes a description and uses MemoryStaticPool
 void *operator new(size_t p_size, const char *p_dummy, void *(*p_allocfunc)(size_t p_size)); ///< operator new that takes a description and uses MemoryStaticPool
@@ -66,20 +72,13 @@ class Memory {
 	Memory();
 
 public:
-#if defined(__MINGW32__) && !defined(__MINGW64__)
-	// Note: Using hardcoded value, since the value can end up different in different compile units on 32-bit windows
-	// due to a compiler bug (see GH-113145)
-	static constexpr size_t MAX_ALIGN = 16;
+	// Force a minimum alignment of 16 bytes.
+	// This handles strict-alignment RISC architectures (SPARC, MIPS, Alpha, etc.),
+	// ensures SIMD safety, and fixes the MinGW 32-bit compiler bug (GH-113145)
+	// by clamping its fluctuating alignof value (8 vs 16) to a consistent 16.
+	static constexpr size_t MAX_ALIGN = (alignof(max_align_t) > GODOT_MIN_STACK_ALIGN) ? alignof(max_align_t) : GODOT_MIN_STACK_ALIGN;
+
 	static_assert(MAX_ALIGN % alignof(max_align_t) == 0);
-#elif defined(__sparc__) || defined(__sparc64__) || defined(__ppc__) || defined(__powerpc__) || defined(__hppa__)
-	// These architectures require strict alignment.
-	// Force 16-byte alignment to ensure CowData headers (uint64_t size)
-	// are strictly aligned to 8-byte boundaries and prevent SIGBUS.
-	static constexpr size_t MAX_ALIGN = 16;
-	static_assert(MAX_ALIGN % alignof(max_align_t) == 0);
-#else
-	static constexpr size_t MAX_ALIGN = alignof(max_align_t);
-#endif
 
 	// Alignment:  ↓ max_align_t        ↓ uint64_t          ↓ MAX_ALIGN
 	//             ┌─────────────────┬──┬────────────────┬──┬───────────...
