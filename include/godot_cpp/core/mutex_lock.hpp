@@ -35,7 +35,7 @@
 
 namespace godot {
 
-class MutexLock {
+class [[nodiscard]] MutexLock {
 	const Mutex &mutex;
 
 public:
