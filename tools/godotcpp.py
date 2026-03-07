@@ -182,6 +182,8 @@ architecture_array = [
     "mips64",
     "alpha",
     "hppa",
+    "arc32",
+    "arc64",
 ]
 architecture_aliases = {
     "x86": "x86_32",
@@ -208,7 +210,10 @@ architecture_aliases = {
     "decalpha": "alpha",
     "parisc": "hppa",
     "pa-risc": "hppa",
-    "hppa64": "hppa"
+    "hppa64": "hppa",
+    "hs38": "arc32",
+    "hs": "arc32",
+    "hs6x": "arc64",
 }
 
 

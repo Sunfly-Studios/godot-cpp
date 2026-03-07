@@ -75,6 +75,24 @@ def generate(env):
         env.Append(CPPDEFINES=["IS_32_BIT"])
         env.Append(CCFLAGS=["-march=2.0", "-mlong-calls"])
         env.Append(LINKFLAGS=["-Wl,-z,norelro"])
+    elif env["arch"].startswith("arc"):
+        env.Append(
+            CCFLAGS=[
+                "-mlong-calls",
+                "-msoft-float",
+                "-matomic"
+            ]
+        )
+        env.Append(LINKFLAGS=[
+            "-latomic",
+            "-Wl,--relax"
+        ])
+        
+        if env["arch"].endswith("32"):
+            env.Append(CCFLAGS=["-mcpu=hs38"])
+        else:
+            env.Append(CCFLAGS=["-mcpu=hs6x"])
+
 
     # Link statically for portability
     if env["use_static_cpp"]:
