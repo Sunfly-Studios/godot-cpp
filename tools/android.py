@@ -9,7 +9,7 @@ def options(opts):
     opts.Add(
         "android_api_level",
         "Target Android API level",
-        "21",
+        "19",
     )
     opts.Add(
         "ANDROID_HOME",
@@ -24,7 +24,14 @@ def exists(env):
 
 # This must be kept in sync with the value in https://github.com/godotengine/godot/blob/master/platform/android/detect.py#L58.
 def get_ndk_version():
-    return "28.1.13356709"
+    # This is a special, unreleased r25c build of the NDK
+    # which has its `libc++_shared.so` 16KB aligned.
+    # To use:
+    # 1. Go to https://ci.android.com/builds/branches/aosp-ndk-r25-release/grid?legacy=1
+    # 2. Download `NDK r25c 16 KB` with its description `Support rc2`.
+    # 3. Extract it to your NDK folder (i.e, C:/Users/<Username>/android-sdk/ndk).
+    # 4. Rename the extracted folder to `25.3.12161346` for it to be picked up here.
+    return "25.3.12161346"
 
 
 def get_android_ndk_root(env):
@@ -48,8 +55,11 @@ def generate(env):
         my_spawn.configure(env)
 
     # Validate API level
-    if int(env["android_api_level"]) < 21:
-        print("WARNING: minimum supported Android target api is 21. Forcing target api 21.")
+    if int(env["android_api_level"]) < 19:
+        print("WARNING: minimum supported Android target api is 19. Forcing target api 19.")
+        env["android_api_level"] = "19"
+    elif "64" in env["arch"] and int(env["android_api_level"]) < 21:
+        print("WARNING: minimum supported Android target api for 64-bit targets is 21. Forcing target api 21.")
         env["android_api_level"] = "21"
 
     # Setup toolchain
