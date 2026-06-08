@@ -38,14 +38,26 @@
 #include <godot_cpp/core/error_macros.hpp>
 #include <godot_cpp/godot.hpp>
 
+#include <new> // for std::launder
 #include <type_traits>
 #include <functional> // for std::less
 
-// Define a safe minimum alignment.
-// "16" is the Goldilocks for SSE/NEON/128-bit SIMD,
-// as well as having a mathematical guarantee
-// to be divisible by 8 (or 4, or 2).
-#define GODOT_MIN_STACK_ALIGN 16
+// Detect 32-bit architectures with 128-bit vector units.
+#if (defined(__i386__) && (defined(__SSE__) || defined(__SSE2__))) || \
+	(defined(_M_IX86) && _M_IX86_FP > 0) || \
+	defined(__ARM_NEON)
+	#define HAS_128_BIT_SIMD 1
+#endif
+
+// Determine the safe minimum stack alignment.
+#if !defined(IS_32_BIT) || defined(HAS_128_BIT_SIMD)
+	// 64-bit platforms.
+	// 32-bit platforms with 128-bit SIMD (x86_32 SSE, etc.).
+	#define GODOT_MIN_STACK_ALIGN 16 
+#else
+	// "Vanilla" 32-bit architectures with no SSE-like goodies.
+	#define GODOT_MIN_STACK_ALIGN 8 
+#endif
 
 // p_dummy argument is added to avoid conflicts with the engine functions when both engine and GDExtension are built as a static library on iOS.
 void *operator new(size_t p_size, const char *p_dummy, const char *p_description); ///< operator new that takes a description and uses MemoryStaticPool
@@ -166,6 +178,97 @@ public:
 
 _FORCE_INLINE_ uint64_t *_get_element_count_ptr(uint8_t *p_ptr) {
 	return (uint64_t *)(p_ptr - Memory::DATA_OFFSET + Memory::ELEMENT_OFFSET);
+}
+
+// TODO(MBCX): A lot of Godot's classes actually
+// fail the check in unaligned_construct about
+// non-trivial classes.
+// These require a bit of a more complex
+// engine-wide clean-up that will be done
+// incrementally at a later date.
+#if defined(TOOLS_ENABLED)
+#define HANDLE_UNALIGNED_NON_TRIVIAL(type, ptr) \
+	do { \
+		static bool warned = false; \
+		if (!warned) { \
+			printf("WARNING: Unaligned access of non-trivial type %s at %p. This is UB.\n", typeid(type).name(), ptr); \
+			warned = true; \
+		} \
+	} while(0)
+#else
+#define HANDLE_UNALIGNED_NON_TRIVIAL(type, ptr) ((void)0)
+#endif
+
+template <typename T>
+_FORCE_INLINE_ T unaligned_read(const void *p_ptr) {
+	if constexpr (std::is_trivially_copyable_v<T>) {
+		T local;
+		memcpy(&local, p_ptr, sizeof(T));
+		return local;
+	} else {
+		uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+		const bool is_aligned = (addr & (alignof(T) - 1)) == 0;
+		
+		if (is_aligned) {
+			return *std::launder(static_cast<const T *>(p_ptr));
+		}
+		HANDLE_UNALIGNED_NON_TRIVIAL(T, p_ptr);
+
+		// Pull the bytes onto an aligned stack block.
+		// Temporary safeboat until the TODO is dealt with.
+		alignas(alignof(T)) uint8_t buf[sizeof(T)] = {};
+		memcpy(buf, p_ptr, sizeof(T));
+		return *std::launder(reinterpret_cast<const T *>(buf));
+	}
+}
+
+template <typename T>
+_FORCE_INLINE_ void unaligned_write(void *p_ptr, const T &p_val) {
+	if constexpr (std::is_trivially_copyable_v<T>) {
+		memcpy(p_ptr, &p_val, sizeof(T));
+	} else {
+		uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+		const bool is_aligned = (addr & (alignof(T) - 1)) == 0;
+
+		if (is_aligned) {
+			*std::launder(static_cast<T *>(p_ptr)) = p_val;
+		} else {
+			HANDLE_UNALIGNED_NON_TRIVIAL(T, p_ptr);
+
+			// Construct locally, then blit the bytes over.
+			alignas(alignof(T)) uint8_t buf[sizeof(T)] = {};
+			::new (buf) T(p_val);
+			memcpy(p_ptr, buf, sizeof(T));
+			reinterpret_cast<T *>(buf)->~T();
+		}
+	}
+}
+
+template <typename ConstructT, typename ArgT>
+_FORCE_INLINE_ void unaligned_construct(void *p_ptr, const ArgT &p_arg) {
+	uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+	const bool is_aligned = (addr & (alignof(ConstructT) - 1)) == 0;
+
+	if constexpr (std::is_trivially_copyable_v<ConstructT>) {
+		if (is_aligned) {
+			::new (p_ptr) ConstructT(p_arg);
+		} else {
+			// This is just a "UB" safe-boat for now until
+			// the TODO is fixed.
+			alignas(alignof(ConstructT)) uint8_t buf[sizeof(ConstructT)] = {};
+			::new (buf) ConstructT(p_arg);
+			memcpy(p_ptr, buf, sizeof(ConstructT));
+		}
+	} else {
+		if (is_aligned) {
+			::new (p_ptr) ConstructT(p_arg);
+		} else {
+			HANDLE_UNALIGNED_NON_TRIVIAL(ConstructT, p_ptr);
+			alignas(alignof(ConstructT)) uint8_t buf[sizeof(ConstructT)] = {};
+			::new (buf) ConstructT(p_arg);
+			memcpy(p_ptr, buf, sizeof(ConstructT));
+		}
+	}
 }
 
 template <typename T>

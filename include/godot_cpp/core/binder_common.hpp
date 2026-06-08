@@ -42,54 +42,49 @@
 namespace godot {
 
 #define VARIANT_ENUM_CAST(m_enum)                                      \
-    namespace godot {                                                  \
-    MAKE_ENUM_TYPE_INFO(m_enum)                                        \
-    template <>                                                        \
-    struct VariantCaster<m_enum> {                                     \
-        static _FORCE_INLINE_ m_enum cast(const Variant &p_variant) {  \
-            return (m_enum)p_variant.operator int64_t();               \
-        }                                                              \
-    };                                                                 \
-    template <>                                                        \
-    struct PtrToArg<m_enum> {                                          \
-        _FORCE_INLINE_ static m_enum convert(const void *p_ptr) {      \
-            int64_t v;                                                 \
-            /* Safe unaligned copy from p_ptr to v */                  \
-            memcpy(&v, p_ptr, sizeof(int64_t));                        \
-            return m_enum(v);                                          \
-        }                                                              \
-        typedef int64_t EncodeT;                                       \
-        _FORCE_INLINE_ static void encode(m_enum p_val, void *p_ptr) { \
-            int64_t v = (int64_t)p_val;                                \
-            /* Safe unaligned copy from v to p_ptr */                  \
-            memcpy(p_ptr, &v, sizeof(int64_t));                        \
-        }                                                              \
-    };                                                                 \
-    }
+	namespace godot {                                                  \
+	MAKE_ENUM_TYPE_INFO(m_enum)                                        \
+	template <>                                                        \
+	struct VariantCaster<m_enum> {                                     \
+		static _FORCE_INLINE_ m_enum cast(const Variant &p_variant) {  \
+			return (m_enum)p_variant.operator int64_t();               \
+		}                                                              \
+	};                                                                 \
+	template <>                                                        \
+	struct PtrToArg<m_enum> {                                          \
+		_FORCE_INLINE_ static m_enum convert(const void *p_ptr) {      \
+			return static_cast<m_enum>(unaligned_read<int64_t>(p_ptr)); \
+		}                                                              \
+		typedef int64_t EncodeT;                                       \
+		_FORCE_INLINE_ static void encode(m_enum p_val, void *p_ptr) { \
+			unaligned_write<int64_t>(p_ptr, static_cast<int64_t>(p_val)); \
+		}                                                              \
+	};                                                                 \
+	}
 
 #define VARIANT_BITFIELD_CAST(m_enum)                                            \
-    namespace godot {                                                            \
-    MAKE_BITFIELD_TYPE_INFO(m_enum)                                              \
-    template <>                                                                  \
-    struct VariantCaster<BitField<m_enum>> {                                     \
-        static _FORCE_INLINE_ BitField<m_enum> cast(const Variant &p_variant) {  \
-            return BitField<m_enum>(p_variant.operator int64_t());               \
-        }                                                                        \
-    };                                                                           \
-    template <>                                                                  \
-    struct PtrToArg<BitField<m_enum>> {                                          \
-        _FORCE_INLINE_ static BitField<m_enum> convert(const void *p_ptr) {      \
-            int64_t v;                                                           \
-            memcpy(&v, p_ptr, sizeof(int64_t));                                  \
-            return BitField<m_enum>(v);                                          \
-        }                                                                        \
-        typedef int64_t EncodeT;                                                 \
-        _FORCE_INLINE_ static void encode(BitField<m_enum> p_val, void *p_ptr) { \
-            int64_t v = (int64_t)p_val;                                          \
-            memcpy(p_ptr, &v, sizeof(int64_t));                                  \
-        }                                                                        \
-    };                                                                           \
-    }
+	namespace godot {                                                            \
+	MAKE_BITFIELD_TYPE_INFO(m_enum)                                              \
+	template <>                                                                  \
+	struct VariantCaster<BitField<m_enum>> {                                     \
+		static _FORCE_INLINE_ BitField<m_enum> cast(const Variant &p_variant) {  \
+			return BitField<m_enum>(p_variant.operator int64_t());               \
+		}                                                                        \
+	};                                                                           \
+	template <>                                                                  \
+	struct PtrToArg<BitField<m_enum>> {                                          \
+		_FORCE_INLINE_ static BitField<m_enum> convert(const void *p_ptr) {      \
+			int64_t v;                                                           \
+			memcpy(&v, p_ptr, sizeof(int64_t));                                  \
+			return BitField<m_enum>(v);                                          \
+		}                                                                        \
+		typedef int64_t EncodeT;                                                 \
+		_FORCE_INLINE_ static void encode(BitField<m_enum> p_val, void *p_ptr) { \
+			int64_t v = (int64_t)p_val;                                          \
+			memcpy(p_ptr, &v, sizeof(int64_t));                                  \
+		}                                                                        \
+	};                                                                           \
+	}
 
 template <typename T>
 struct VariantCaster {
@@ -361,13 +356,15 @@ void call_with_variant_args_dv(T *p_instance, void (T::*p_method)(P...), const G
 
 	Variant args[sizeof...(P) == 0 ? 1 : sizeof...(P)]; // Avoid zero sized array.
 	std::array<const Variant *, sizeof...(P)> argsp;
-	for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
-		if (i < p_argcount) {
-			args[i] = Variant(p_args[i]);
-		} else {
-			args[i] = default_values[i - p_argcount + (dvs - missing)];
+	if constexpr (sizeof...(P) > 0) {
+		for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
+			if (i < p_argcount) {
+				args[i] = Variant(p_args[i]);
+			} else {
+				args[i] = default_values[i - p_argcount + (dvs - missing)];
+			}
+			argsp[i] = &args[i];
 		}
-		argsp[i] = &args[i];
 	}
 
 	call_with_variant_args_helper(p_instance, p_method, argsp.data(), r_error, BuildIndexSequence<sizeof...(P)>{});
@@ -396,13 +393,15 @@ void call_with_variant_argsc_dv(T *p_instance, void (T::*p_method)(P...) const, 
 
 	Variant args[sizeof...(P) == 0 ? 1 : sizeof...(P)]; // Avoid zero sized array.
 	std::array<const Variant *, sizeof...(P)> argsp;
-	for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
-		if (i < p_argcount) {
-			args[i] = Variant(p_args[i]);
-		} else {
-			args[i] = default_values[i - p_argcount + (dvs - missing)];
+	if constexpr (sizeof...(P) > 0) {
+		for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
+			if (i < p_argcount) {
+				args[i] = Variant(p_args[i]);
+			} else {
+				args[i] = default_values[i - p_argcount + (dvs - missing)];
+			}
+			argsp[i] = &args[i];
 		}
-		argsp[i] = &args[i];
 	}
 
 	call_with_variant_argsc_helper(p_instance, p_method, argsp.data(), r_error, BuildIndexSequence<sizeof...(P)>{});
@@ -431,13 +430,15 @@ void call_with_variant_args_ret_dv(T *p_instance, R (T::*p_method)(P...), const 
 
 	Variant args[sizeof...(P) == 0 ? 1 : sizeof...(P)]; // Avoid zero sized array.
 	std::array<const Variant *, sizeof...(P)> argsp;
-	for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
-		if (i < p_argcount) {
-			args[i] = Variant(p_args[i]);
-		} else {
-			args[i] = default_values[i - p_argcount + (dvs - missing)];
+	if constexpr (sizeof...(P) > 0) {
+		for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
+			if (i < p_argcount) {
+				args[i] = Variant(p_args[i]);
+			} else {
+				args[i] = default_values[i - p_argcount + (dvs - missing)];
+			}
+			argsp[i] = &args[i];
 		}
-		argsp[i] = &args[i];
 	}
 
 	call_with_variant_args_ret_helper(p_instance, p_method, argsp.data(), r_ret, r_error, BuildIndexSequence<sizeof...(P)>{});
@@ -466,13 +467,15 @@ void call_with_variant_args_retc_dv(T *p_instance, R (T::*p_method)(P...) const,
 
 	Variant args[sizeof...(P) == 0 ? 1 : sizeof...(P)]; // Avoid zero sized array.
 	std::array<const Variant *, sizeof...(P)> argsp;
-	for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
-		if (i < p_argcount) {
-			args[i] = Variant(p_args[i]);
-		} else {
-			args[i] = default_values[i - p_argcount + (dvs - missing)];
+	if constexpr (sizeof...(P) > 0) {
+		for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
+			if (i < p_argcount) {
+				args[i] = Variant(p_args[i]);
+			} else {
+				args[i] = default_values[i - p_argcount + (dvs - missing)];
+			}
+			argsp[i] = &args[i];
 		}
-		argsp[i] = &args[i];
 	}
 
 	call_with_variant_args_retc_helper(p_instance, p_method, argsp.data(), r_ret, r_error, BuildIndexSequence<sizeof...(P)>{});
@@ -578,13 +581,15 @@ void call_with_variant_args_static_dv(void (*p_method)(P...), const GDExtensionC
 
 	Variant args[sizeof...(P) == 0 ? 1 : sizeof...(P)]; // Avoid zero sized array.
 	std::array<const Variant *, sizeof...(P)> argsp;
-	for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
-		if (i < p_argcount) {
-			args[i] = Variant(p_args[i]);
-		} else {
-			args[i] = default_values[i - p_argcount + (dvs - missing)];
+	if constexpr (sizeof...(P) > 0) {
+		for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
+			if (i < p_argcount) {
+				args[i] = Variant(p_args[i]);
+			} else {
+				args[i] = default_values[i - p_argcount + (dvs - missing)];
+			}
+			argsp[i] = &args[i];
 		}
-		argsp[i] = &args[i];
 	}
 
 	call_with_variant_args_static(p_method, argsp.data(), r_error, BuildIndexSequence<sizeof...(P)>{});
@@ -670,13 +675,15 @@ void call_with_variant_args_static_ret_dv(R (*p_method)(P...), const GDExtension
 
 	Variant args[sizeof...(P) == 0 ? 1 : sizeof...(P)]; // Avoid zero sized array.
 	std::array<const Variant *, sizeof...(P)> argsp;
-	for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
-		if (i < p_argcount) {
-			args[i] = Variant(p_args[i]);
-		} else {
-			args[i] = default_values[i - p_argcount + (dvs - missing)];
+	if constexpr (sizeof...(P) > 0) {
+		for (int32_t i = 0; i < (int32_t)sizeof...(P); i++) {
+			if (i < p_argcount) {
+				args[i] = Variant(p_args[i]);
+			} else {
+				args[i] = default_values[i - p_argcount + (dvs - missing)];
+			}
+			argsp[i] = &args[i];
 		}
-		argsp[i] = &args[i];
 	}
 
 	call_with_variant_args_static_ret(p_method, argsp.data(), r_ret, r_error, BuildIndexSequence<sizeof...(P)>{});
