@@ -180,25 +180,6 @@ _FORCE_INLINE_ uint64_t *_get_element_count_ptr(uint8_t *p_ptr) {
 	return (uint64_t *)(p_ptr - Memory::DATA_OFFSET + Memory::ELEMENT_OFFSET);
 }
 
-// TODO(MBCX): A lot of Godot's classes actually
-// fail the check in unaligned_construct about
-// non-trivial classes.
-// These require a bit of a more complex
-// engine-wide clean-up that will be done
-// incrementally at a later date.
-#if defined(TOOLS_ENABLED)
-#define HANDLE_UNALIGNED_NON_TRIVIAL(type, ptr) \
-	do { \
-		static bool warned = false; \
-		if (!warned) { \
-			printf("WARNING: Unaligned access of non-trivial type %s at %p. This is UB.\n", typeid(type).name(), ptr); \
-			warned = true; \
-		} \
-	} while(0)
-#else
-#define HANDLE_UNALIGNED_NON_TRIVIAL(type, ptr) ((void)0)
-#endif
-
 template <typename T>
 _FORCE_INLINE_ T unaligned_read(const void *p_ptr) {
 	if constexpr (std::is_trivially_copyable_v<T>) {
@@ -206,19 +187,13 @@ _FORCE_INLINE_ T unaligned_read(const void *p_ptr) {
 		memcpy(&local, p_ptr, sizeof(T));
 		return local;
 	} else {
-		uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
-		const bool is_aligned = (addr & (alignof(T) - 1)) == 0;
-		
-		if (is_aligned) {
-			return *std::launder(static_cast<const T *>(p_ptr));
+#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
+		const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+		if (unlikely((addr & (alignof(T) - 1)) != 0)) {
+			CRASH_NOW_MSG("FATAL: Unaligned read of non-trivial type.");
 		}
-		HANDLE_UNALIGNED_NON_TRIVIAL(T, p_ptr);
-
-		// Pull the bytes onto an aligned stack block.
-		// Temporary safeboat until the TODO is dealt with.
-		alignas(alignof(T)) uint8_t buf[sizeof(T)] = {};
-		memcpy(buf, p_ptr, sizeof(T));
-		return *std::launder(reinterpret_cast<const T *>(buf));
+#endif
+		return *static_cast<const T *>(p_ptr);
 	}
 }
 
@@ -227,47 +202,35 @@ _FORCE_INLINE_ void unaligned_write(void *p_ptr, const T &p_val) {
 	if constexpr (std::is_trivially_copyable_v<T>) {
 		memcpy(p_ptr, &p_val, sizeof(T));
 	} else {
-		uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
-		const bool is_aligned = (addr & (alignof(T) - 1)) == 0;
-
-		if (is_aligned) {
-			*std::launder(static_cast<T *>(p_ptr)) = p_val;
-		} else {
-			HANDLE_UNALIGNED_NON_TRIVIAL(T, p_ptr);
-
-			// Construct locally, then blit the bytes over.
-			alignas(alignof(T)) uint8_t buf[sizeof(T)] = {};
-			::new (buf) T(p_val);
-			memcpy(p_ptr, buf, sizeof(T));
-			reinterpret_cast<T *>(buf)->~T();
+#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
+		const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+		if (unlikely((addr & (alignof(T) - 1)) != 0)) {
+			CRASH_NOW_MSG("FATAL: Unaligned write of non-trivial type.");
 		}
+#endif
+		*static_cast<T *>(p_ptr) = p_val;
 	}
 }
 
 template <typename ConstructT, typename ArgT>
 _FORCE_INLINE_ void unaligned_construct(void *p_ptr, const ArgT &p_arg) {
-	uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+	const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
 	const bool is_aligned = (addr & (alignof(ConstructT) - 1)) == 0;
 
 	if constexpr (std::is_trivially_copyable_v<ConstructT>) {
 		if (is_aligned) {
 			::new (p_ptr) ConstructT(p_arg);
 		} else {
-			// This is just a "UB" safe-boat for now until
-			// the TODO is fixed.
-			alignas(alignof(ConstructT)) uint8_t buf[sizeof(ConstructT)] = {};
-			::new (buf) ConstructT(p_arg);
-			memcpy(p_ptr, buf, sizeof(ConstructT));
+			ConstructT local(p_arg);
+			memcpy(p_ptr, &local, sizeof(ConstructT));
 		}
 	} else {
-		if (is_aligned) {
-			::new (p_ptr) ConstructT(p_arg);
-		} else {
-			HANDLE_UNALIGNED_NON_TRIVIAL(ConstructT, p_ptr);
-			alignas(alignof(ConstructT)) uint8_t buf[sizeof(ConstructT)] = {};
-			::new (buf) ConstructT(p_arg);
-			memcpy(p_ptr, buf, sizeof(ConstructT));
+#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
+		if (unlikely(!is_aligned)) {
+			CRASH_NOW_MSG("FATAL: Unaligned construction of non-trivial type.");
 		}
+#endif
+		::new (p_ptr) ConstructT(p_arg);
 	}
 }
 
