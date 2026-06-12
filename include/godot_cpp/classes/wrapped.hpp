@@ -557,6 +557,23 @@ public:                                                                         
 		return string_name;                                                                                                                                                            \
 	}                                                                                                                                                                                  \
 																																													   \
+	static void notification_bind(GDExtensionClassInstancePtr p_instance, int32_t p_what, GDExtensionBool p_reversed) {}                                                               \
+	static GDExtensionBool set_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionConstVariantPtr p_value) {                                \
+		return false;                                                                                                                                                                  \
+	}                                                                                                                                                                                  \
+	static GDExtensionBool get_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) {                                       \
+		return false;                                                                                                                                                                  \
+	}                                                                                                                                                                                  \
+	static GDExtensionBool property_can_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name) {                                                    \
+		return false;                                                                                                                                                                  \
+	}                                                                                                                                                                                  \
+	static GDExtensionBool property_get_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) {                       \
+		return false;                                                                                                                                                                  \
+	}                                                                                                                                                                                  \
+	static GDExtensionBool validate_property_bind(GDExtensionClassInstancePtr p_instance, GDExtensionPropertyInfo *p_property) {                                                       \
+		return false;                                                                                                                                                                  \
+	}                                                                                                                                                                                  \
+	static void to_string_bind(GDExtensionClassInstancePtr p_instance, GDExtensionBool *r_is_valid, GDExtensionStringPtr r_out) {}                                                     \
 	static const ::godot::StringName &get_parent_class_static() {                                                                                                                      \
 		return m_inherits::get_class_static();                                                                                                                                         \
 	}                                                                                                                                                                                  \
