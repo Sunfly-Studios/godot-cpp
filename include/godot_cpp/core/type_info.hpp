@@ -309,26 +309,21 @@ inline StringName _gde_constant_get_bitfield_name(T param, StringName p_constant
 template <typename T>
 struct PtrToArg<TypedArray<T>> {
     _FORCE_INLINE_ static TypedArray<T> convert(const void *p_ptr) {
-        alignas(alignof(Array)) uint8_t buf[sizeof(Array)];
-        memcpy(buf, p_ptr, sizeof(Array));
-        return TypedArray<T>(*reinterpret_cast<const Array *>(buf));
+        return TypedArray<T>(unaligned_read<Array>(p_ptr));
     }
     typedef Array EncodeT;
     _FORCE_INLINE_ static void encode(TypedArray<T> p_val, void *p_ptr) {
-        // TypedArray casts implicitly to Array
+		// TypedArray casts implicitly to Array
         Array arr = p_val;
-        memcpy(p_ptr, &arr, sizeof(Array));
+        unaligned_write<Array>(p_ptr, arr);
     }
 };
 
 template <typename T>
 struct PtrToArg<const TypedArray<T> &> {
     typedef Array EncodeT;
-    _FORCE_INLINE_ static TypedArray<T>
-    convert(const void *p_ptr) {
-        alignas(alignof(Array)) uint8_t buf[sizeof(Array)];
-        memcpy(buf, p_ptr, sizeof(Array));
-        return TypedArray<T>(*reinterpret_cast<const Array *>(buf));
+    _FORCE_INLINE_ static TypedArray<T> convert(const void *p_ptr) {
+        return TypedArray<T>(unaligned_read<Array>(p_ptr));
     }
 };
 

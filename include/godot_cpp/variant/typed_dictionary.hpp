@@ -266,20 +266,20 @@ MAKE_TYPED_DICTIONARY(IPAddress, Variant::STRING)
 template <typename K, typename V>
 struct PtrToArg<TypedDictionary<K, V>> {
 	_FORCE_INLINE_ static TypedDictionary<K, V> convert(const void *p_ptr) {
-		return TypedDictionary<K, V>(*reinterpret_cast<const Dictionary *>(p_ptr));
+		return TypedDictionary<K, V>(unaligned_read<Dictionary>(p_ptr));
 	}
 	typedef Dictionary EncodeT;
 	_FORCE_INLINE_ static void encode(TypedDictionary<K, V> p_val, void *p_ptr) {
-		*(Dictionary *)p_ptr = p_val;
+		Dictionary dict = p_val;
+		unaligned_write<Dictionary>(p_ptr, dict);
 	}
 };
 
 template <typename K, typename V>
 struct PtrToArg<const TypedDictionary<K, V> &> {
 	typedef Dictionary EncodeT;
-	_FORCE_INLINE_ static TypedDictionary<K, V>
-	convert(const void *p_ptr) {
-		return TypedDictionary<K, V>(*reinterpret_cast<const Dictionary *>(p_ptr));
+	_FORCE_INLINE_ static TypedDictionary<K, V> convert(const void *p_ptr) {
+		return TypedDictionary<K, V>(unaligned_read<Dictionary>(p_ptr));
 	}
 };
 
