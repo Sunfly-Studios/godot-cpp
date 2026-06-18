@@ -82,6 +82,10 @@ def options(opts):
     opts.Add(BoolVariable("use_llvm", "Use the LLVM compiler (MVSC or MinGW depending on the use_mingw flag)", False))
     opts.Add("mingw_prefix", "MinGW prefix", mingw)
     opts.Add("llvm_win_prefix", "LLVM on Windows custom installation prefix", "")
+    opts.Add("winsdk_sysroot", "Path to a custom Windows SDK (UCRT) root directory", "")
+    opts.Add("msvc_stl_root", "Path to a custom MSVC STL root directory", "")
+    opts.Add("winsdk_version", "Version of the Windows SDK to use", "10.0.18362.0")
+    opts.Add("target_win_version", "Targeted Windows version, >= 0x0600 (Windows Vista)", "0x0600")
 
 
 def exists(env):
@@ -114,6 +118,12 @@ def generate(env):
         env.Append(CPPDEFINES=["TYPED_METHOD_BIND", "NOMINMAX"])
         env.Append(CCFLAGS=["/utf-8"])
         env.Append(LINKFLAGS=["/WX"])
+        env.AppendUnique(
+            CPPDEFINES=[
+                "WINVER=%s" % env["target_win_version"],
+                "_WIN32_WINNT=%s" % env["target_win_version"],
+            ]
+        )
 
         if env["use_llvm"]:
             if env["llvm_win_prefix"]:
@@ -140,6 +150,62 @@ def generate(env):
 
         if env["silence_msvc"] and not env.GetOption("clean"):
             silence_msvc(env)
+
+        if env["msvc_stl_root"] or env["winsdk_sysroot"]:
+            arch_map = {
+                "x86_64": "x64",
+                "x86_32": "x86",
+                "arm32": "arm",
+                "arm64": "arm64",
+            }
+            target_arch = arch_map.get(env["arch"], env["arch"])
+            sdk_version = env.get("winsdk_version", "10.0.18362.0")
+
+            if env["use_llvm"]:
+                # clang-cl specific overrides
+                if env["msvc_stl_root"]:
+                    stl_inc = os.path.normpath(os.path.join(env["msvc_stl_root"], "include"))
+                    stl_lib = os.path.normpath(os.path.join(env["msvc_stl_root"], "lib", target_arch))
+
+                    env["ENV"]["INCLUDE"] = stl_inc + ";" + env["ENV"].get("INCLUDE", "")
+                    env["ENV"]["LIB"] = stl_lib + ";" + env["ENV"].get("LIB", "")
+
+                if env["winsdk_sysroot"]:
+                    sdk_root = env["winsdk_sysroot"]
+                    
+                    # Resolve paths
+                    sdk_inc_ucrt = os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "ucrt"))
+                    sdk_inc_shared = os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "shared"))
+                    sdk_inc_um = os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "um"))
+                    sdk_inc_winrt = os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "winrt"))
+                    
+                    sdk_lib_ucrt = os.path.normpath(os.path.join(sdk_root, "Lib", sdk_version, "ucrt", target_arch))
+                    sdk_lib_um = os.path.normpath(os.path.join(sdk_root, "Lib", sdk_version, "um", target_arch))
+                    
+                    sdk_includes = ";".join([sdk_inc_ucrt, sdk_inc_shared, sdk_inc_um, sdk_inc_winrt])
+                    sdk_libs = ";".join([sdk_lib_ucrt, sdk_lib_um])
+                    
+                    # Append to environment blocks
+                    env["ENV"]["INCLUDE"] = sdk_includes + ";" + env["ENV"].get("INCLUDE", "")
+                    env["ENV"]["LIB"] = sdk_libs + ";" + env["ENV"].get("LIB", "")
+            else:
+                # MSVC fallback
+                if env["msvc_stl_root"]:
+                    env.Prepend(CPPPATH=[os.path.normpath(os.path.join(env["msvc_stl_root"], "include"))])
+                    env.Prepend(LIBPATH=[os.path.normpath(os.path.join(env["msvc_stl_root"], "lib", target_arch))])
+                    
+                if env["winsdk_sysroot"]:
+                    sdk_root = env["winsdk_sysroot"]
+                    env.Prepend(CPPPATH=[
+                        os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "ucrt")),
+                        os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "shared")),
+                        os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "um")),
+                        os.path.normpath(os.path.join(sdk_root, "Include", sdk_version, "winrt")),
+                    ])
+                    env.Prepend(LIBPATH=[
+                        os.path.normpath(os.path.join(sdk_root, "Lib", sdk_version, "ucrt", target_arch)),
+                        os.path.normpath(os.path.join(sdk_root, "Lib", sdk_version, "um", target_arch)),
+                    ])
 
     elif (sys.platform == "win32" or sys.platform == "msys") and not env["mingw_prefix"]:
         env["use_mingw"] = True
