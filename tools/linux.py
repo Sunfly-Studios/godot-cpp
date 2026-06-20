@@ -6,6 +6,7 @@ from SCons.Variables import BoolVariable
 def options(opts):
     opts.Add(BoolVariable("use_llvm", "Use the LLVM compiler - only effective when targeting Linux", False))
     opts.Add(BoolVariable("use_static_cpp", "Link libgcc and libstdc++ statically for better portability", True))
+    opts.Add("sse_level", "Dictates the level of SSE used for x86 builds. Where 0 = MMX, 1 = SSE, 2 = SSE2", "2")
 
 
 def exists(env):
@@ -31,6 +32,16 @@ def generate(env):
     elif env["arch"] == "x86_32":
         env.Append(CCFLAGS=["-m32", "-march=i686"])
         env.Append(LINKFLAGS=["-m32", "-march=i686"])
+
+        if env["sse_level"] == "2":
+            env.Append(CCFLAGS=["-msse2", "-mfpmath=sse", "-mstackrealign"])
+        elif env["sse_level"] == "1":
+            # -mfpmath=sse allows GCC to use XMM registers for scalar floats.
+            # It will automatically fallback to 387 for doubles (since SSE1 can't handle them).
+            # But be explicit never hurts anyway.
+            env.Append(CCFLAGS=["-msse", "-mno-sse2", "-mfpmath=sse,387"])
+        else: # MMX
+            env.Append(CCFLAGS=["-mmmx", "-mno-sse", "-mno-sse2", "-mfpmath=387"])
     elif env["arch"] == "arm64":
         env.Append(CCFLAGS=["-march=armv8-a"])
         env.Append(LINKFLAGS=["-march=armv8-a"])
