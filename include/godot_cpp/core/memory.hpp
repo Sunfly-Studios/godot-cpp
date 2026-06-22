@@ -59,6 +59,40 @@
 	#define GODOT_MIN_STACK_ALIGN 8 
 #endif
 
+// Calculate the required alignment:
+// The larger of the type's requirement or GODOT_MIN_STACK_ALIGN.
+#define SAFE_ALIGN_SIZE(m_type) \
+	((alignof(m_type) > GODOT_MIN_STACK_ALIGN) ? alignof(m_type) : GODOT_MIN_STACK_ALIGN)
+
+// Unify all safe memory allocation macros
+// here for convenience.
+
+#if defined(__GNUC__) || defined(__clang__)
+// Use the built-in function for these compilers.
+#define SAFE_ALLOCA(m_size, m_align) __builtin_alloca_with_align((m_size), (m_align) * 8)
+#elif defined(_WIN32)
+// Windows wants `_alloca`
+#define SAFE_ALLOCA(m_size, m_align) \
+	((void *)((((uintptr_t)_alloca((m_size) + (m_align))) + ((m_align) - 1)) & ~((uintptr_t)((m_align) - 1))))
+#else
+#define SAFE_ALLOCA(m_size, m_align) \
+	((void *)((((uintptr_t)alloca((m_size) + (m_align))) + ((m_align) - 1)) & ~((uintptr_t)((m_align) - 1))))
+#endif // __GNUC__ || __clang__
+
+// Safe Stack Allocation Macro. This macro:
+// - Allocates requested size + alignment padding.
+// - Shifts the pointer to match the type's alignment requirement (alignof).
+// - Always guarantees GODOT_MIN_STACK_ALIGN.
+// - Safely handles zero-count allocations.
+// 
+// Should futher prevent crashes on strict RISC architectures
+// and improve SIMD safety on x86.
+#define SAFE_ALLOCA_ARRAY(m_type, m_count) \
+	((m_count) > 0) ? static_cast<m_type *>(SAFE_ALLOCA(sizeof(m_type) * (m_count), SAFE_ALIGN_SIZE(m_type))) : nullptr
+
+// Single-element version.
+#define SAFE_ALLOCA_SINGLE(m_type) SAFE_ALLOCA_ARRAY(m_type, 1)
+
 // p_dummy argument is added to avoid conflicts with the engine functions when both engine and GDExtension are built as a static library on iOS.
 void *operator new(size_t p_size, const char *p_dummy, const char *p_description); ///< operator new that takes a description and uses MemoryStaticPool
 void *operator new(size_t p_size, const char *p_dummy, void *(*p_allocfunc)(size_t p_size)); ///< operator new that takes a description and uses MemoryStaticPool
@@ -232,6 +266,30 @@ _FORCE_INLINE_ void unaligned_construct(void *p_ptr, const ArgT &p_arg) {
 #endif
 		::new (p_ptr) ConstructT(p_arg);
 	}
+}
+
+// Mutable version
+template <typename T>
+_FORCE_INLINE_ T *unaligned_ptr_cast(void *p_ptr) {
+#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
+	const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+	if (unlikely((addr & (alignof(T) - 1)) != 0)) {
+		CRASH_NOW_MSG("FATAL: Unaligned pointer cast.");
+	}
+#endif
+	return static_cast<T *>(p_ptr);
+}
+
+// For read-only access
+template <typename T>
+_FORCE_INLINE_ const T *unaligned_ptr_cast(const void *p_ptr) {
+#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
+	const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+	if (unlikely((addr & (alignof(T) - 1)) != 0)) {
+		CRASH_NOW_MSG("FATAL: Unaligned pointer cast.");
+	}
+#endif
+	return static_cast<const T *>(p_ptr);
 }
 
 template <typename T>
