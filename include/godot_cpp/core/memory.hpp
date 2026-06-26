@@ -227,7 +227,7 @@ _FORCE_INLINE_ T unaligned_read(const void *p_ptr) {
 			CRASH_NOW_MSG("FATAL: Unaligned read of non-trivial type.");
 		}
 #endif
-		return *static_cast<const T *>(p_ptr);
+		return *std::launder(static_cast<const T *>(p_ptr));
 	}
 }
 
@@ -242,7 +242,7 @@ _FORCE_INLINE_ void unaligned_write(void *p_ptr, const T &p_val) {
 			CRASH_NOW_MSG("FATAL: Unaligned write of non-trivial type.");
 		}
 #endif
-		*static_cast<T *>(p_ptr) = p_val;
+		*std::launder(static_cast<T *>(p_ptr)) = p_val;
 	}
 }
 
