@@ -161,7 +161,7 @@ _ALWAYS_INLINE_ T *_post_initialize(T *p_obj) {
 #define memnew(m_class) (::godot::_pre_initialize<std::remove_pointer_t<decltype(::new ("", "") m_class)>>(), ::godot::_post_initialize(::new ("", "") m_class))
 
 #define memnew_allocator(m_class, m_allocator) (::godot::_pre_initialize<std::remove_pointer_t<decltype(::new ("", "") m_class)>>(), ::godot::_post_initialize(::new ("", m_allocator::alloc) m_class))
-#define memnew_placement(m_placement, m_class) (::godot::_pre_initialize<std::remove_pointer_t<decltype(::new ("", "") m_class)>>(), ::godot::_post_initialize(::new ("", m_placement, sizeof(m_class), "") m_class))
+#define memnew_placement(m_placement, m_class) (::godot::_pre_initialize<std::remove_pointer_t<decltype(::new ("", "") m_class)>>(), ::godot::_post_initialize(::new ("", m_placement, sizeof(std::remove_pointer_t<decltype(::new ("", "") m_class)>), "") m_class))
 
 // Generic comparator used in Map, List, etc.
 template <typename T>
@@ -266,30 +266,6 @@ _FORCE_INLINE_ void unaligned_construct(void *p_ptr, const ArgT &p_arg) {
 #endif
 		::new (p_ptr) ConstructT(p_arg);
 	}
-}
-
-// Mutable version
-template <typename T>
-_FORCE_INLINE_ T *unaligned_ptr_cast(void *p_ptr) {
-#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
-	const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
-	if (unlikely((addr & (alignof(T) - 1)) != 0)) {
-		CRASH_NOW_MSG("FATAL: Unaligned pointer cast.");
-	}
-#endif
-	return static_cast<T *>(p_ptr);
-}
-
-// For read-only access
-template <typename T>
-_FORCE_INLINE_ const T *unaligned_ptr_cast(const void *p_ptr) {
-#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
-	const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
-	if (unlikely((addr & (alignof(T) - 1)) != 0)) {
-		CRASH_NOW_MSG("FATAL: Unaligned pointer cast.");
-	}
-#endif
-	return static_cast<const T *>(p_ptr);
 }
 
 template <typename T>

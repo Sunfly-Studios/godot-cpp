@@ -5,6 +5,7 @@ import common_compiler_flags
 import my_spawn
 from SCons.Tool import mingw, msvc
 from SCons.Variables import BoolVariable
+from utils import detect_and_set_32_bit_arch
 
 
 def silence_msvc(env):

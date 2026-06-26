@@ -1,5 +1,6 @@
 import common_compiler_flags
 from SCons.Util import WhereIs
+from utils import detect_and_set_32_bit_arch
 
 
 def exists(env):

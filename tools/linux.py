@@ -1,6 +1,7 @@
 import common_compiler_flags
 from SCons.Tool import clang, clangxx
 from SCons.Variables import BoolVariable
+from utils import detect_and_set_32_bit_arch
 
 
 def options(opts):

@@ -3,6 +3,7 @@ import sys
 
 import common_compiler_flags
 import my_spawn
+from utils import detect_and_set_32_bit_arch
 
 
 def options(opts):
