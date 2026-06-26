@@ -167,7 +167,7 @@ _ALWAYS_INLINE_ T *_post_initialize(T *p_obj) {
 template <typename T>
 struct Comparator {
 	_ALWAYS_INLINE_ bool operator()(const T &p_a, const T &p_b) const {
-		return std::less<T>{}(p_a, p_b);
+		return std::less<>{}(p_a, p_b);
 	}
 };
 
