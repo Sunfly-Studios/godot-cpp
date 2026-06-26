@@ -313,7 +313,7 @@ T *memnew_arr_template(size_t p_elements, const char *p_descr = "") {
 
 		/* call operator new */
 		for (size_t i = 0; i < p_elements; i++) {
-			new ("", &elems[i], sizeof(T), p_descr) T;
+			::new ("", &elems[i], sizeof(T), p_descr) T;
 		}
 	}
 

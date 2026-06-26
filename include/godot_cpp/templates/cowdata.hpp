@@ -153,6 +153,7 @@ private:
 	void _ref(const CowData *p_from);
 	void _ref(const CowData &p_from);
 	USize _copy_on_write();
+	Error _realloc(Size p_alloc_size);
 
 public:
 	void operator=(const CowData<T> &p_from) { _ref(p_from); }
@@ -236,25 +237,48 @@ void CowData<T>::_unref(void *p_data) {
 		return;
 	}
 
+	bool was_ptr = (p_data == _ptr);
 	SafeNumeric<USize> *refc = _get_refcount();
 
 	if (refc->decrement() > 0) {
-		return; // still in use
+		// Data is still in use elsewhere.
+		if (was_ptr) {
+			_ptr = nullptr;
+		}
+		return;
 	}
-	// clean up
+
+	// Clean up.
+	// First, invalidate our own reference.
+	// NOTE: It is required to do so immediately because it must not be observable outside of this
+	//       function after refcount has already been reduced to 0.
+	// WARNING: It must be done before calling the destructors, because one of them may otherwise
+	//          observe it through a reference to us. In this case, it may try to access the buffer,
+	//          which is illegal after some of the elements in it have already been destructed, and
+	//          may lead to a segmentation fault.
+	USize current_size = *_get_size();
+	T *prev_ptr = (T *)p_data;
+	
+	if (was_ptr) {
+		_ptr = nullptr;
+	}
 
 	if constexpr (!std::is_trivially_destructible_v<T>) {
-		USize *count = _get_size();
-		T *data = (T *)(count + 1);
-
-		for (USize i = 0; i < *count; ++i) {
-			// call destructors
-			data[i].~T();
+		for (USize i = 0; i < current_size; ++i) {
+			prev_ptr[i].~T();
 		}
 	}
 
 	// free mem
-	Memory::free_static(((uint8_t *)p_data) - DATA_OFFSET, false);
+	Memory::free_static(((uint8_t *)prev_ptr) - DATA_OFFSET, false);
+
+#ifdef DEBUG_ENABLED
+	// If any destructors access us through pointers, it is a bug.
+	// We can't really test for that, but we can at least check no items have been added.
+	if (was_ptr) {
+		ERR_FAIL_COND_MSG(_ptr != nullptr, "Internal bug, please report: CowData was modified during destruction.");
+	}
+#endif
 }
 
 template <typename T>
@@ -277,12 +301,12 @@ typename CowData<T>::USize CowData<T>::_copy_on_write() {
 		USize *_size_ptr = _get_size_ptr(mem_new);
 		T *_data_ptr = _get_data_ptr(mem_new);
 
-		new (_refc_ptr) SafeNumeric<USize>(1); //refcount
-		*(_size_ptr) = current_size; //size
+		::new (_refc_ptr) SafeNumeric<USize>(1); //refcount
+		::new (_size_ptr) USize(current_size); //size
 
 		// initialize new elements
 		if constexpr (std::is_trivially_copyable_v<T>) {
-			memcpy((uint8_t *)_data_ptr, _ptr, current_size * sizeof(T));
+			memcpy((void *)_data_ptr, (const void *)_ptr, current_size * sizeof(T));
 		} else {
 			for (USize i = 0; i < current_size; i++) {
 				memnew_placement(&_data_ptr[i], T(_ptr[i]));
@@ -295,6 +319,45 @@ typename CowData<T>::USize CowData<T>::_copy_on_write() {
 		rc = 1;
 	}
 	return rc;
+}
+
+template <typename T>
+Error CowData<T>::_realloc(Size p_alloc_size) {
+	if constexpr (std::is_trivially_copyable_v<T>) {
+		// Safe to C-realloc
+		uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - DATA_OFFSET, p_alloc_size + DATA_OFFSET, false);
+		ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
+
+		SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+		T *_data_ptr = _get_data_ptr(mem_new);
+
+		::new (_refc_ptr) SafeNumeric<USize>(1);
+		_ptr = _data_ptr;
+	} else {
+		// Non-trivial types must be formally moved
+		USize active_elements = *_get_size();
+
+		uint8_t *mem_new = (uint8_t *)Memory::alloc_static(p_alloc_size + DATA_OFFSET, false);
+		ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
+
+		SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+		USize *_size_ptr = _get_size_ptr(mem_new);
+		T *_data_ptr = _get_data_ptr(mem_new);
+
+		::new (_refc_ptr) SafeNumeric<USize>(1);
+		::new (_size_ptr) USize(active_elements);
+
+		// Cleanly move only the living objects
+		for (USize i = 0; i < active_elements; i++) {
+			memnew_placement(&_data_ptr[i], T(std::move(_ptr[i])));
+			_ptr[i].~T(); // Destroy old
+		}
+
+		Memory::free_static(((uint8_t *)_ptr) - DATA_OFFSET, false);
+		_ptr = _data_ptr;
+	}
+
+	return OK;
 }
 
 template <typename T>
@@ -316,7 +379,7 @@ Error CowData<T>::resize(Size p_size) {
 	}
 
 	// possibly changing size, copy on write
-	USize rc = _copy_on_write();
+	_copy_on_write();
 
 	USize current_alloc_size = _get_alloc_size(current_size);
 	USize alloc_size;
@@ -333,31 +396,32 @@ Error CowData<T>::resize(Size p_size) {
 				USize *_size_ptr = _get_size_ptr(mem_new);
 				T *_data_ptr = _get_data_ptr(mem_new);
 
-				new (_refc_ptr) SafeNumeric<USize>(1); //refcount
-				*(_size_ptr) = 0; //size, currently none
+				::new (_refc_ptr) SafeNumeric<USize>(1); //refcount
+				::new (_size_ptr) USize(0); //size, currently none
 
 				_ptr = _data_ptr;
 			} else {
-				uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - DATA_OFFSET, alloc_size + DATA_OFFSET, false);
-				ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
-
-				SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
-				T *_data_ptr = _get_data_ptr(mem_new);
-
-				new (_refc_ptr) SafeNumeric<USize>(rc); //refcount
-
-				_ptr = _data_ptr;
+				const Error error = _realloc(alloc_size);
+				if (error) {
+					return error;
+				}
 			}
 		}
 
 		// construct the newly created elements
 
-		if constexpr (!std::is_trivially_constructible_v<T>) {
-			for (Size i = *_get_size(); i < p_size; i++) {
-				memnew_placement(&_ptr[i], T);
+		if constexpr (std::is_trivially_constructible_v<T> && std::is_trivially_copyable_v<T>) {
+			// Safe to leave uninitialized or zero out because
+			// lifetime is implicit for trivial C-types
+			if (p_ensure_zero) {
+				memset((void *)(_ptr + current_size), 0, (p_size - current_size) * sizeof(T));
 			}
-		} else if (p_ensure_zero) {
-			memset((void *)(_ptr + current_size), 0, (p_size - current_size) * sizeof(T));
+		} else {
+			// Always formally begin the object lifetime
+			// for anything with non-trivial operators
+			for (Size i = *_get_size(); i < p_size; i++) {
+				memnew_placement(&_ptr[i], T());
+			}
 		}
 
 		*_get_size() = p_size;
@@ -371,19 +435,17 @@ Error CowData<T>::resize(Size p_size) {
 			}
 		}
 
-		if (alloc_size != current_alloc_size) {
-			uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - DATA_OFFSET, alloc_size + DATA_OFFSET, false);
-			ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
-
-			SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
-			T *_data_ptr = _get_data_ptr(mem_new);
-
-			new (_refc_ptr) SafeNumeric<USize>(rc); //refcount
-
-			_ptr = _data_ptr;
-		}
-
+		// Update the internal size before reallocating.
+		// _realloc needs the accurate active count so it doesn't move
+		// already-destroyed elements or overflow the new smaller buffer.
 		*_get_size() = p_size;
+
+		if (alloc_size != current_alloc_size) {
+			const Error error = _realloc(alloc_size);
+			if (error) {
+				return error;
+			}
+		}
 	}
 
 	return OK;
