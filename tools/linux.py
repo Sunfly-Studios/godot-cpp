@@ -24,6 +24,8 @@ def generate(env):
     env.Append(CCFLAGS=["-fPIC", "-Wwrite-strings"])
     env.Append(LINKFLAGS=["-Wl,-R,'$$ORIGIN'"])
 
+    detect_and_set_32_bit_arch(env)
+
     if env["arch"] == "x86_64":
         # -m64 and -m32 are x86-specific already, but it doesn't hurt to
         # be clear and also specify -march=x86-64. Similar with 32-bit.
@@ -83,7 +85,6 @@ def generate(env):
         )
         env.Append(LINKFLAGS=["-Wl,--no-relax", "-mlarge-data"])
     elif env["arch"] == "hppa":
-        env.Append(CPPDEFINES=["IS_32_BIT"])
         env.Append(CCFLAGS=["-march=2.0", "-mlong-calls"])
         env.Append(LINKFLAGS=["-Wl,-z,norelro"])
     elif env["arch"].startswith("arc"):

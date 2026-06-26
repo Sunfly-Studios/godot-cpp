@@ -12,6 +12,7 @@ def generate(env):
         env.Exit(1)
 
     flip_wasm64_requirement = 1 if env["arch"] == "wasm64" else 0
+    detect_and_set_32_bit_arch(env)
 
     # Emscripten toolchain
     env["CC"] = "emcc"

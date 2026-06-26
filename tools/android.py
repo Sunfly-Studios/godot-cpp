@@ -61,6 +61,8 @@ def generate(env):
     elif "64" in env["arch"] and int(env["android_api_level"]) < 21:
         print("WARNING: minimum supported Android target api for 64-bit targets is 21. Forcing target api 21.")
         env["android_api_level"] = "21"
+    
+    detect_and_set_32_bit_arch(env)
 
     # Setup toolchain
     toolchain = get_android_ndk_root(env) + "/toolchains/llvm/prebuilt/"
