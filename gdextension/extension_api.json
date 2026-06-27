@@ -3,9 +3,9 @@
 		"version_major": 4,
 		"version_minor": 4,
 		"version_patch": 0,
-		"version_status": "stable",
-		"version_build": "official",
-		"version_full_name": "Godot Engine v4.4.stable.official"
+		"version_status": "rc",
+		"version_build": "custom_build",
+		"version_full_name": "Godot Engine v4.4.rc.custom_build"
 	},
 	"builtin_class_sizes": [
 		{
@@ -3644,8 +3644,12 @@
 					"value": 40
 				},
 				{
-					"name": "PROPERTY_HINT_MAX",
+					"name": "PROPERTY_HINT_INPUT_NAME",
 					"value": 42
+				},
+				{
+					"name": "PROPERTY_HINT_MAX",
+					"value": 43
 				}
 			]
 		},
@@ -8752,7 +8756,7 @@
 					"hash": 247621236
 				},
 				{
-					"name": "hex_decode",
+					"name": "to_wchar_buffer",
 					"return_type": "PackedByteArray",
 					"is_vararg": false,
 					"is_const": true,
@@ -8760,7 +8764,22 @@
 					"hash": 247621236
 				},
 				{
-					"name": "to_wchar_buffer",
+					"name": "to_multibyte_char_buffer",
+					"return_type": "PackedByteArray",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3055765187,
+					"arguments": [
+						{
+							"name": "encoding",
+							"type": "String",
+							"default_value": "\"\""
+						}
+					]
+				},
+				{
+					"name": "hex_decode",
 					"return_type": "PackedByteArray",
 					"is_vararg": false,
 					"is_const": true,
@@ -19086,7 +19105,7 @@
 					"hash": 247621236
 				},
 				{
-					"name": "hex_decode",
+					"name": "to_wchar_buffer",
 					"return_type": "PackedByteArray",
 					"is_vararg": false,
 					"is_const": true,
@@ -19094,7 +19113,22 @@
 					"hash": 247621236
 				},
 				{
-					"name": "to_wchar_buffer",
+					"name": "to_multibyte_char_buffer",
+					"return_type": "PackedByteArray",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3055765187,
+					"arguments": [
+						{
+							"name": "encoding",
+							"type": "String",
+							"default_value": "\"\""
+						}
+					]
+				},
+				{
+					"name": "hex_decode",
 					"return_type": "PackedByteArray",
 					"is_vararg": false,
 					"is_const": true,
@@ -21197,6 +21231,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -21212,22 +21262,6 @@
 							"type": "int"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -21500,6 +21534,21 @@
 					"is_const": true,
 					"is_static": false,
 					"hash": 3942272618
+				},
+				{
+					"name": "get_string_from_multibyte_char",
+					"return_type": "String",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3134094431,
+					"arguments": [
+						{
+							"name": "encoding",
+							"type": "String",
+							"default_value": "\"\""
+						}
+					]
 				},
 				{
 					"name": "hex_encode",
@@ -22102,6 +22151,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -22117,22 +22182,6 @@
 							"type": "int"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -22461,6 +22510,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -22476,22 +22541,6 @@
 							"type": "int"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -22820,6 +22869,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -22835,22 +22900,6 @@
 							"type": "float"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -23179,6 +23228,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -23194,22 +23259,6 @@
 							"type": "float"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -23538,6 +23587,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -23553,22 +23618,6 @@
 							"type": "String"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -23902,6 +23951,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -23917,22 +23982,6 @@
 							"type": "Vector2"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -24266,6 +24315,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -24281,22 +24346,6 @@
 							"type": "Vector3"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -24625,6 +24674,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -24640,22 +24705,6 @@
 							"type": "Color"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -24984,6 +25033,22 @@
 					]
 				},
 				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141
+				},
+				{
 					"name": "set",
 					"is_vararg": false,
 					"is_const": false,
@@ -24999,22 +25064,6 @@
 							"type": "Vector4"
 						}
 					]
-				},
-				{
-					"name": "size",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3173160232
-				},
-				{
-					"name": "is_empty",
-					"return_type": "bool",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 3918633141
 				},
 				{
 					"name": "push_back",
@@ -27043,6 +27092,77 @@
 							"default_value": "false"
 						}
 					]
+				},
+				{
+					"name": "set_hpa_enabled",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "enabled",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "is_hpa_enabled",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
+					"name": "is_hpa_dirty",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
+					"name": "set_hpa_cluster_size",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "cluster_size",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
+				},
+				{
+					"name": "get_hpa_cluster_size",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					}
+				},
+				{
+					"name": "update_hpa",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3218959716
 				}
 			],
 			"properties": [
@@ -27099,6 +27219,18 @@
 					"name": "diagonal_mode",
 					"setter": "set_diagonal_mode",
 					"getter": "get_diagonal_mode"
+				},
+				{
+					"type": "bool",
+					"name": "hpa_enabled",
+					"setter": "set_hpa_enabled",
+					"getter": "is_hpa_enabled"
+				},
+				{
+					"type": "int",
+					"name": "hpa_cluster_size",
+					"setter": "set_hpa_cluster_size",
+					"getter": "get_hpa_cluster_size"
 				}
 			]
 		},
@@ -49280,8 +49412,12 @@
 							"value": 21
 						},
 						{
-							"name": "FLAG_MAX",
+							"name": "FLAG_DISABLE_MULTI_BOUNCE_OCCLUSION",
 							"value": 22
+						},
+						{
+							"name": "FLAG_MAX",
+							"value": 23
 						}
 					]
 				},
@@ -51295,6 +51431,13 @@
 					"setter": "set_flag",
 					"getter": "get_flag",
 					"index": 21
+				},
+				{
+					"type": "bool",
+					"name": "disable_occlusion_bounce",
+					"setter": "set_flag",
+					"getter": "get_flag",
+					"index": 22
 				},
 				{
 					"type": "bool",
@@ -72879,6 +73022,46 @@
 			]
 		},
 		{
+			"name": "Compositor2D",
+			"is_refcounted": false,
+			"is_instantiable": true,
+			"inherits": "Node2D",
+			"api_type": "core",
+			"methods": [
+				{
+					"name": "_render_callback",
+					"is_const": false,
+					"is_static": false,
+					"is_required": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"hash": 1942976711,
+					"arguments": [
+						{
+							"name": "render_data",
+							"type": "RenderCanvasDataRD"
+						}
+					]
+				},
+				{
+					"name": "enable_backbuffer",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3218959716
+				},
+				{
+					"name": "disable_backbuffer",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3218959716
+				}
+			]
+		},
+		{
 			"name": "CompositorEffect",
 			"is_refcounted": true,
 			"is_instantiable": true,
@@ -81394,7 +81577,7 @@
 						},
 						{
 							"name": "WINDOW_FLAG_MAX",
-							"value": 10
+							"value": 12
 						}
 					]
 				},
@@ -88177,6 +88360,13 @@
 			"api_type": "editor"
 		},
 		{
+			"name": "EditorExportPlatformOpenHarmony",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "EditorExportPlatform",
+			"api_type": "editor"
+		},
+		{
 			"name": "EditorExportPlatformPC",
 			"is_refcounted": true,
 			"is_instantiable": false,
@@ -89198,6 +89388,63 @@
 					"hash": 201670096,
 					"return_value": {
 						"type": "String"
+					}
+				},
+				{
+					"name": "get_seed",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "uint64"
+					}
+				},
+				{
+					"name": "get_sign_pck",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
+					"name": "get_signing_key_priv",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 201670096,
+					"return_value": {
+						"type": "String"
+					}
+				},
+				{
+					"name": "get_signing_key_pub",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 201670096,
+					"return_value": {
+						"type": "String"
+					}
+				},
+				{
+					"name": "get_signing_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
 					}
 				},
 				{
@@ -98243,6 +98490,33 @@
 					}
 				},
 				{
+					"name": "set_fixed_fps",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "fixed_fps",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
+				},
+				{
+					"name": "get_fixed_fps",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					}
+				},
+				{
 					"name": "set_time_scale",
 					"is_const": false,
 					"is_vararg": false,
@@ -98591,6 +98865,18 @@
 					}
 				},
 				{
+					"name": "get_write_movie_subframes",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					}
+				},
+				{
 					"name": "set_print_to_stdout",
 					"is_const": false,
 					"is_vararg": false,
@@ -98671,6 +98957,12 @@
 					"name": "max_fps",
 					"setter": "set_max_fps",
 					"getter": "get_max_fps"
+				},
+				{
+					"type": "int",
+					"name": "fixed_fps",
+					"setter": "set_fixed_fps",
+					"getter": "get_fixed_fps"
 				},
 				{
 					"type": "float",
@@ -99246,6 +99538,10 @@
 						{
 							"name": "TONE_MAPPER_AGX",
 							"value": 4
+						},
+						{
+							"name": "TONE_MAPPER_DRAGO",
+							"value": 5
 						}
 					]
 				},
@@ -120962,6 +121258,10 @@
 						{
 							"name": "FILL_SQUARE",
 							"value": 2
+						},
+						{
+							"name": "FILL_CONIC",
+							"value": 3
 						}
 					]
 				},
@@ -127651,6 +127951,34 @@
 					]
 				},
 				{
+					"name": "save_qoi",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2113323047,
+					"return_value": {
+						"type": "enum::Error"
+					},
+					"arguments": [
+						{
+							"name": "path",
+							"type": "String"
+						}
+					]
+				},
+				{
+					"name": "save_qoi_to_buffer",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2362200018,
+					"return_value": {
+						"type": "PackedByteArray"
+					}
+				},
+				{
 					"name": "save_exr",
 					"is_const": true,
 					"is_vararg": false,
@@ -128323,6 +128651,23 @@
 				},
 				{
 					"name": "load_bmp_from_buffer",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 680677267,
+					"return_value": {
+						"type": "enum::Error"
+					},
+					"arguments": [
+						{
+							"name": "buffer",
+							"type": "PackedByteArray"
+						}
+					]
+				},
+				{
+					"name": "load_qoi_from_buffer",
 					"is_const": false,
 					"is_vararg": false,
 					"is_static": false,
@@ -140428,6 +140773,70 @@
 					"return_value": {
 						"type": "CameraAttributes"
 					}
+				},
+				{
+					"name": "set_cull_mask",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "cull_mask",
+							"type": "int",
+							"meta": "uint32"
+						}
+					]
+				},
+				{
+					"name": "get_cull_mask",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "uint32"
+					}
+				},
+				{
+					"name": "set_cull_mask_value",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 300928843,
+					"arguments": [
+						{
+							"name": "layer_number",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "value",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "get_cull_mask_value",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1116898809,
+					"return_value": {
+						"type": "bool"
+					},
+					"arguments": [
+						{
+							"name": "layer_number",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
 				}
 			],
 			"properties": [
@@ -140562,6 +140971,12 @@
 					"name": "light_data",
 					"setter": "set_light_data",
 					"getter": "get_light_data"
+				},
+				{
+					"type": "int",
+					"name": "cull_mask",
+					"setter": "set_cull_mask",
+					"getter": "get_cull_mask"
 				}
 			]
 		},
@@ -140734,6 +141149,31 @@
 					"hash": 3218959716
 				},
 				{
+					"name": "set_preview_bake",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "preview_bake",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "is_preview_bake",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
 					"name": "set_light_texture",
 					"is_const": false,
 					"is_vararg": false,
@@ -140789,6 +141229,12 @@
 					"name": "probe_data",
 					"setter": "_set_probe_data",
 					"getter": "_get_probe_data"
+				},
+				{
+					"type": "bool",
+					"name": "preview_bake",
+					"setter": "set_preview_bake",
+					"getter": "is_preview_bake"
 				},
 				{
 					"type": "TextureLayered",
@@ -170675,12 +171121,20 @@
 							"value": 1
 						},
 						{
-							"name": "RENDERING_DRIVER_D3D12",
+							"name": "RENDERING_DRIVER_OPENGL2",
 							"value": 2
 						},
 						{
-							"name": "RENDERING_DRIVER_METAL",
+							"name": "RENDERING_DRIVER_OPENGL1",
 							"value": 3
+						},
+						{
+							"name": "RENDERING_DRIVER_D3D12",
+							"value": 4
+						},
+						{
+							"name": "RENDERING_DRIVER_METAL",
+							"value": 5
 						}
 					]
 				},
@@ -178433,7 +178887,7 @@
 					},
 					"arguments": [
 						{
-							"name": "pck_path",
+							"name": "pck_name",
 							"type": "String"
 						},
 						{
@@ -178466,7 +178920,7 @@
 					},
 					"arguments": [
 						{
-							"name": "target_path",
+							"name": "pck_path",
 							"type": "String"
 						},
 						{
@@ -178508,6 +178962,28 @@
 						"type": "enum::Error"
 					},
 					"arguments": [
+						{
+							"name": "verbose",
+							"type": "bool",
+							"default_value": "false"
+						}
+					]
+				},
+				{
+					"name": "flush_and_sign",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 479413050,
+					"return_value": {
+						"type": "enum::Error"
+					},
+					"arguments": [
+						{
+							"name": "key",
+							"type": "CryptoKey"
+						},
 						{
 							"name": "verbose",
 							"type": "bool",
@@ -182372,11 +182848,39 @@
 					"return_value": {
 						"type": "Curve3D"
 					}
+				},
+				{
+					"name": "set_debug_custom_color",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2920490490,
+					"arguments": [
+						{
+							"name": "debug_custom_color",
+							"type": "Color"
+						}
+					]
+				},
+				{
+					"name": "get_debug_custom_color",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3444240500,
+					"return_value": {
+						"type": "Color"
+					}
 				}
 			],
 			"signals": [
 				{
 					"name": "curve_changed"
+				},
+				{
+					"name": "debug_color_changed"
 				}
 			],
 			"properties": [
@@ -182385,6 +182889,12 @@
 					"name": "curve",
 					"setter": "set_curve",
 					"getter": "get_curve"
+				},
+				{
+					"type": "Color",
+					"name": "debug_custom_color",
+					"setter": "set_debug_custom_color",
+					"getter": "get_debug_custom_color"
 				}
 			]
 		},
@@ -209480,8 +209990,9 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 708980503,
+					"hash": 3736830468,
 					"hash_compatibility": [
+						708980503,
 						3001721055
 					],
 					"return_value": {
@@ -209502,6 +210013,11 @@
 							"type": "int",
 							"meta": "int32",
 							"default_value": "0"
+						},
+						{
+							"name": "key",
+							"type": "CryptoKey",
+							"default_value": "null"
 						}
 					]
 				},
@@ -214423,6 +214939,31 @@
 					"return_value": {
 						"type": "bool"
 					}
+				},
+				{
+					"name": "set_debug_color",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2920490490,
+					"arguments": [
+						{
+							"name": "color",
+							"type": "Color"
+						}
+					]
+				},
+				{
+					"name": "get_debug_color",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3444240500,
+					"return_value": {
+						"type": "Color"
+					}
 				}
 			],
 			"properties": [
@@ -214467,6 +215008,12 @@
 					"name": "collide_with_bodies",
 					"setter": "set_collide_with_bodies",
 					"getter": "is_collide_with_bodies_enabled"
+				},
+				{
+					"type": "Color",
+					"name": "debug_color",
+					"setter": "set_debug_color",
+					"getter": "get_debug_color"
 				}
 			]
 		},
@@ -216398,6 +216945,48 @@
 					"name": "update_scale",
 					"setter": "set_update_scale",
 					"getter": "get_update_scale"
+				}
+			]
+		},
+		{
+			"name": "RenderCanvasDataRD",
+			"is_refcounted": false,
+			"is_instantiable": true,
+			"inherits": "Object",
+			"api_type": "core",
+			"methods": [
+				{
+					"name": "get_screen_texture",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2944877500,
+					"return_value": {
+						"type": "RID"
+					}
+				},
+				{
+					"name": "get_backbuffer_texture",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2944877500,
+					"return_value": {
+						"type": "RID"
+					}
+				},
+				{
+					"name": "is_using_linear_colors",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
 				}
 			]
 		},
@@ -218765,8 +219354,64 @@
 							"value": 217
 						},
 						{
-							"name": "DATA_FORMAT_MAX",
+							"name": "DATA_FORMAT_ASTC_4x4_SFLOAT_BLOCK",
 							"value": 218
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_5x4_SFLOAT_BLOCK",
+							"value": 219
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_5x5_SFLOAT_BLOCK",
+							"value": 220
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_6x5_SFLOAT_BLOCK",
+							"value": 221
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_6x6_SFLOAT_BLOCK",
+							"value": 222
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_8x5_SFLOAT_BLOCK",
+							"value": 223
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_8x6_SFLOAT_BLOCK",
+							"value": 224
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_8x8_SFLOAT_BLOCK",
+							"value": 225
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_10x5_SFLOAT_BLOCK",
+							"value": 226
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_10x6_SFLOAT_BLOCK",
+							"value": 227
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_10x8_SFLOAT_BLOCK",
+							"value": 228
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_10x10_SFLOAT_BLOCK",
+							"value": 229
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_12x10_SFLOAT_BLOCK",
+							"value": 230
+						},
+						{
+							"name": "DATA_FORMAT_ASTC_12x12_SFLOAT_BLOCK",
+							"value": 231
+						},
+						{
+							"name": "DATA_FORMAT_MAX",
+							"value": 232
 						}
 					]
 				},
@@ -224383,6 +225028,10 @@
 						{
 							"name": "ENV_TONE_MAPPER_AGX",
 							"value": 4
+						},
+						{
+							"name": "ENV_TONE_MAPPER_DRAGO",
+							"value": 5
 						}
 					]
 				},
@@ -234087,6 +234736,24 @@
 					]
 				},
 				{
+					"name": "canvas_item_add_rendering_callback",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3379118538,
+					"arguments": [
+						{
+							"name": "item",
+							"type": "RID"
+						},
+						{
+							"name": "callable",
+							"type": "Callable"
+						}
+					]
+				},
+				{
 					"name": "canvas_item_set_sort_children_by_y",
 					"is_const": false,
 					"is_vararg": false,
@@ -234177,6 +234844,39 @@
 						},
 						{
 							"name": "skeleton",
+							"type": "RID"
+						}
+					]
+				},
+				{
+					"name": "canvas_item_set_presort_level",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3411492887,
+					"arguments": [
+						{
+							"name": "item",
+							"type": "RID"
+						},
+						{
+							"name": "order",
+							"type": "int",
+							"meta": "int64"
+						}
+					]
+				},
+				{
+					"name": "canvas_item_flush_presort",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2722037293,
+					"arguments": [
+						{
+							"name": "item",
 							"type": "RID"
 						}
 					]
@@ -282706,6 +283406,13 @@
 			]
 		},
 		{
+			"name": "TextServerFallback",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "TextServerExtension",
+			"api_type": "core"
+		},
+		{
 			"name": "TextServerManager",
 			"is_refcounted": false,
 			"is_instantiable": true,
@@ -294440,6 +295147,56 @@
 					]
 				},
 				{
+					"name": "get_locale_override",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 201670096,
+					"return_value": {
+						"type": "String"
+					}
+				},
+				{
+					"name": "set_locale_override",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 83702148,
+					"arguments": [
+						{
+							"name": "locale",
+							"type": "String"
+						}
+					]
+				},
+				{
+					"name": "is_enabled",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
+					"name": "set_enabled",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "enabled",
+							"type": "bool"
+						}
+					]
+				},
+				{
 					"name": "is_pseudolocalization_enabled",
 					"is_const": true,
 					"is_vararg": false,
@@ -294685,6 +295442,12 @@
 				}
 			],
 			"properties": [
+				{
+					"type": "bool",
+					"name": "enabled",
+					"setter": "set_enabled",
+					"getter": "is_enabled"
+				},
 				{
 					"type": "bool",
 					"name": "pseudolocalization_enabled",
@@ -304376,6 +305139,491 @@
 					"name": "viewport_path",
 					"setter": "set_viewport_path_in_scene",
 					"getter": "get_viewport_path_in_scene"
+				}
+			]
+		},
+		{
+			"name": "VirtualJoystick",
+			"is_refcounted": false,
+			"is_instantiable": true,
+			"inherits": "Control",
+			"api_type": "core",
+			"enums": [
+				{
+					"name": "JoystickMode",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "JOYSTICK_FIXED",
+							"value": 0
+						},
+						{
+							"name": "JOYSTICK_DYNAMIC",
+							"value": 1
+						},
+						{
+							"name": "JOYSTICK_FOLLOWING",
+							"value": 2
+						}
+					]
+				},
+				{
+					"name": "VisibilityMode",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "VISIBILITY_ALWAYS",
+							"value": 0
+						},
+						{
+							"name": "VISIBILITY_WHEN_TOUCHED",
+							"value": 1
+						}
+					]
+				}
+			],
+			"methods": [
+				{
+					"name": "set_joystick_mode",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1316760817,
+					"arguments": [
+						{
+							"name": "mode",
+							"type": "enum::VirtualJoystick.JoystickMode"
+						}
+					]
+				},
+				{
+					"name": "get_joystick_mode",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2694680530,
+					"return_value": {
+						"type": "enum::VirtualJoystick.JoystickMode"
+					}
+				},
+				{
+					"name": "set_joystick_size",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "size",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "get_joystick_size",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_tip_size",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "size",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "get_tip_size",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_deadzone_ratio",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "ratio",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "get_deadzone_ratio",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_clampzone_ratio",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "ratio",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "get_clampzone_ratio",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_initial_offset_ratio",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 743155724,
+					"arguments": [
+						{
+							"name": "ratio",
+							"type": "Vector2"
+						}
+					]
+				},
+				{
+					"name": "get_initial_offset_ratio",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3341600327,
+					"return_value": {
+						"type": "Vector2"
+					}
+				},
+				{
+					"name": "set_action_left",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3304788590,
+					"arguments": [
+						{
+							"name": "action",
+							"type": "StringName"
+						}
+					]
+				},
+				{
+					"name": "get_action_left",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2002593661,
+					"return_value": {
+						"type": "StringName"
+					}
+				},
+				{
+					"name": "set_action_right",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3304788590,
+					"arguments": [
+						{
+							"name": "action",
+							"type": "StringName"
+						}
+					]
+				},
+				{
+					"name": "get_action_right",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2002593661,
+					"return_value": {
+						"type": "StringName"
+					}
+				},
+				{
+					"name": "set_action_up",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3304788590,
+					"arguments": [
+						{
+							"name": "action",
+							"type": "StringName"
+						}
+					]
+				},
+				{
+					"name": "get_action_up",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2002593661,
+					"return_value": {
+						"type": "StringName"
+					}
+				},
+				{
+					"name": "set_action_down",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3304788590,
+					"arguments": [
+						{
+							"name": "action",
+							"type": "StringName"
+						}
+					]
+				},
+				{
+					"name": "get_action_down",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2002593661,
+					"return_value": {
+						"type": "StringName"
+					}
+				},
+				{
+					"name": "set_visibility_mode",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2638298545,
+					"arguments": [
+						{
+							"name": "mode",
+							"type": "enum::VirtualJoystick.VisibilityMode"
+						}
+					]
+				},
+				{
+					"name": "get_visibility_mode",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3530872950,
+					"return_value": {
+						"type": "enum::VirtualJoystick.VisibilityMode"
+					}
+				},
+				{
+					"name": "set_joystick_texture",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4051416890,
+					"arguments": [
+						{
+							"name": "texture",
+							"type": "Texture2D"
+						}
+					]
+				},
+				{
+					"name": "get_joystick_texture",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3635182373,
+					"return_value": {
+						"type": "Texture2D"
+					}
+				},
+				{
+					"name": "set_tip_texture",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4051416890,
+					"arguments": [
+						{
+							"name": "texture",
+							"type": "Texture2D"
+						}
+					]
+				},
+				{
+					"name": "get_tip_texture",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3635182373,
+					"return_value": {
+						"type": "Texture2D"
+					}
+				}
+			],
+			"signals": [
+				{
+					"name": "pressed"
+				},
+				{
+					"name": "tapped"
+				},
+				{
+					"name": "released",
+					"arguments": [
+						{
+							"name": "input_vector",
+							"type": "Vector2"
+						}
+					]
+				},
+				{
+					"name": "flicked",
+					"arguments": [
+						{
+							"name": "input_vector",
+							"type": "Vector2"
+						}
+					]
+				},
+				{
+					"name": "flick_canceled"
+				}
+			],
+			"properties": [
+				{
+					"type": "int",
+					"name": "joystick_mode",
+					"setter": "set_joystick_mode",
+					"getter": "get_joystick_mode"
+				},
+				{
+					"type": "float",
+					"name": "joystick_size",
+					"setter": "set_joystick_size",
+					"getter": "get_joystick_size"
+				},
+				{
+					"type": "float",
+					"name": "tip_size",
+					"setter": "set_tip_size",
+					"getter": "get_tip_size"
+				},
+				{
+					"type": "float",
+					"name": "deadzone_ratio",
+					"setter": "set_deadzone_ratio",
+					"getter": "get_deadzone_ratio"
+				},
+				{
+					"type": "float",
+					"name": "clampzone_ratio",
+					"setter": "set_clampzone_ratio",
+					"getter": "get_clampzone_ratio"
+				},
+				{
+					"type": "Vector2",
+					"name": "initial_offset_ratio",
+					"setter": "set_initial_offset_ratio",
+					"getter": "get_initial_offset_ratio"
+				},
+				{
+					"type": "StringName",
+					"name": "action_left",
+					"setter": "set_action_left",
+					"getter": "get_action_left"
+				},
+				{
+					"type": "StringName",
+					"name": "action_right",
+					"setter": "set_action_right",
+					"getter": "get_action_right"
+				},
+				{
+					"type": "StringName",
+					"name": "action_up",
+					"setter": "set_action_up",
+					"getter": "get_action_up"
+				},
+				{
+					"type": "StringName",
+					"name": "action_down",
+					"setter": "set_action_down",
+					"getter": "get_action_down"
+				},
+				{
+					"type": "int",
+					"name": "visibility_mode",
+					"setter": "set_visibility_mode",
+					"getter": "get_visibility_mode"
+				},
+				{
+					"type": "Texture2D",
+					"name": "joystick_texture",
+					"setter": "set_joystick_texture",
+					"getter": "get_joystick_texture"
+				},
+				{
+					"type": "Texture2D",
+					"name": "tip_texture",
+					"setter": "set_tip_texture",
+					"getter": "get_tip_texture"
 				}
 			]
 		},
@@ -315570,7 +316818,7 @@
 						},
 						{
 							"name": "FLAG_MAX",
-							"value": 10
+							"value": 12
 						}
 					]
 				},
