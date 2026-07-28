@@ -48457,6 +48457,33 @@
 			]
 		},
 		{
+			"name": "AwaitTweener",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "Tweener",
+			"api_type": "core",
+			"methods": [
+				{
+					"name": "set_timeout",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3123469156,
+					"return_value": {
+						"type": "AwaitTweener"
+					},
+					"arguments": [
+						{
+							"name": "timeout",
+							"type": "float",
+							"meta": "double"
+						}
+					]
+				}
+			]
+		},
+		{
 			"name": "BackBufferCopy",
 			"is_refcounted": false,
 			"is_instantiable": true,
@@ -299781,6 +299808,23 @@
 					]
 				},
 				{
+					"name": "tween_await",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2242837462,
+					"return_value": {
+						"type": "AwaitTweener"
+					},
+					"arguments": [
+						{
+							"name": "signal",
+							"type": "Signal"
+						}
+					]
+				},
+				{
 					"name": "custom_step",
 					"is_const": false,
 					"is_vararg": false,
@@ -311691,6 +311735,268 @@
 					"name": "op_type",
 					"setter": "set_op_type",
 					"getter": "get_op_type"
+				}
+			]
+		},
+		{
+			"name": "VisualShaderNodeSwizzle",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "VisualShaderNode",
+			"api_type": "core",
+			"methods": [
+				{
+					"name": "set_mask",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 83702148,
+					"arguments": [
+						{
+							"name": "mask",
+							"type": "String"
+						}
+					]
+				},
+				{
+					"name": "get_mask",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 201670096,
+					"return_value": {
+						"type": "String"
+					}
+				}
+			],
+			"properties": [
+				{
+					"type": "String",
+					"name": "mask",
+					"setter": "set_mask",
+					"getter": "get_mask"
+				}
+			]
+		},
+		{
+			"name": "VisualShaderNodeSwizzleAlt",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "VisualShaderNode",
+			"api_type": "core",
+			"enums": [
+				{
+					"name": "Output",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "OUTPUT_SCALAR",
+							"value": 0
+						},
+						{
+							"name": "OUTPUT_VECTOR_2D",
+							"value": 1
+						},
+						{
+							"name": "OUTPUT_VECTOR_3D",
+							"value": 2
+						},
+						{
+							"name": "OUTPUT_VECTOR_4D",
+							"value": 3
+						},
+						{
+							"name": "OUTPUT_MAX",
+							"value": 4
+						}
+					]
+				},
+				{
+					"name": "Channel",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "CHANNEL_RED",
+							"value": 0
+						},
+						{
+							"name": "CHANNEL_GREEN",
+							"value": 1
+						},
+						{
+							"name": "CHANNEL_BLUE",
+							"value": 2
+						},
+						{
+							"name": "CHANNEL_ALPHA",
+							"value": 3
+						},
+						{
+							"name": "CHANNEL_MAX",
+							"value": 4
+						}
+					]
+				}
+			],
+			"methods": [
+				{
+					"name": "set_output",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3475178610,
+					"arguments": [
+						{
+							"name": "output_type",
+							"type": "enum::VisualShaderNodeSwizzleAlt.Output"
+						}
+					]
+				},
+				{
+					"name": "get_output",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3123604071,
+					"return_value": {
+						"type": "enum::VisualShaderNodeSwizzleAlt.Output"
+					}
+				},
+				{
+					"name": "set_red_channel",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 287973945,
+					"arguments": [
+						{
+							"name": "red_channel",
+							"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+						}
+					]
+				},
+				{
+					"name": "get_red_channel",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4201289613,
+					"return_value": {
+						"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+					}
+				},
+				{
+					"name": "set_green_channel",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 287973945,
+					"arguments": [
+						{
+							"name": "green_channel",
+							"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+						}
+					]
+				},
+				{
+					"name": "get_green_channel",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4201289613,
+					"return_value": {
+						"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+					}
+				},
+				{
+					"name": "set_blue_channel",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 287973945,
+					"arguments": [
+						{
+							"name": "blue_channel",
+							"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+						}
+					]
+				},
+				{
+					"name": "get_blue_channel",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4201289613,
+					"return_value": {
+						"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+					}
+				},
+				{
+					"name": "set_alpha_channel",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 287973945,
+					"arguments": [
+						{
+							"name": "alpha_channel",
+							"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+						}
+					]
+				},
+				{
+					"name": "get_alpha_channel",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4201289613,
+					"return_value": {
+						"type": "enum::VisualShaderNodeSwizzleAlt.Channel"
+					}
+				}
+			],
+			"properties": [
+				{
+					"type": "int",
+					"name": "output_type",
+					"setter": "set_output",
+					"getter": "get_output"
+				},
+				{
+					"type": "int",
+					"name": "red_channel",
+					"setter": "set_red_channel",
+					"getter": "get_red_channel"
+				},
+				{
+					"type": "int",
+					"name": "green_channel",
+					"setter": "set_green_channel",
+					"getter": "get_green_channel"
+				},
+				{
+					"type": "int",
+					"name": "blue_channel",
+					"setter": "set_blue_channel",
+					"getter": "get_blue_channel"
+				},
+				{
+					"type": "int",
+					"name": "alpha_channel",
+					"setter": "set_alpha_channel",
+					"getter": "get_alpha_channel"
 				}
 			]
 		},
