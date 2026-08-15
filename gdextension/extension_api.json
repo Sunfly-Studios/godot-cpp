@@ -158764,6 +158764,56 @@
 						"type": "float",
 						"meta": "float"
 					}
+				},
+				{
+					"name": "set_included_regions",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 381264803,
+					"arguments": [
+						{
+							"name": "regions",
+							"type": "typedarray::RID"
+						}
+					]
+				},
+				{
+					"name": "get_included_regions",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3995934104,
+					"return_value": {
+						"type": "typedarray::RID"
+					}
+				},
+				{
+					"name": "set_excluded_regions",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 381264803,
+					"arguments": [
+						{
+							"name": "regions",
+							"type": "typedarray::RID"
+						}
+					]
+				},
+				{
+					"name": "get_excluded_regions",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3995934104,
+					"return_value": {
+						"type": "typedarray::RID"
+					}
 				}
 			],
 			"properties": [
@@ -158820,6 +158870,18 @@
 					"name": "simplify_epsilon",
 					"setter": "set_simplify_epsilon",
 					"getter": "get_simplify_epsilon"
+				},
+				{
+					"type": "typedarray::RID",
+					"name": "excluded_regions",
+					"setter": "set_excluded_regions",
+					"getter": "get_excluded_regions"
+				},
+				{
+					"type": "typedarray::RID",
+					"name": "included_regions",
+					"setter": "set_included_regions",
+					"getter": "get_included_regions"
 				}
 			]
 		},
@@ -159114,6 +159176,56 @@
 						"type": "float",
 						"meta": "float"
 					}
+				},
+				{
+					"name": "set_included_regions",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 381264803,
+					"arguments": [
+						{
+							"name": "regions",
+							"type": "typedarray::RID"
+						}
+					]
+				},
+				{
+					"name": "get_included_regions",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3995934104,
+					"return_value": {
+						"type": "typedarray::RID"
+					}
+				},
+				{
+					"name": "set_excluded_regions",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 381264803,
+					"arguments": [
+						{
+							"name": "regions",
+							"type": "typedarray::RID"
+						}
+					]
+				},
+				{
+					"name": "get_excluded_regions",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3995934104,
+					"return_value": {
+						"type": "typedarray::RID"
+					}
 				}
 			],
 			"properties": [
@@ -159170,6 +159282,18 @@
 					"name": "simplify_epsilon",
 					"setter": "set_simplify_epsilon",
 					"getter": "get_simplify_epsilon"
+				},
+				{
+					"type": "typedarray::RID",
+					"name": "excluded_regions",
+					"setter": "set_excluded_regions",
+					"getter": "get_excluded_regions"
+				},
+				{
+					"type": "typedarray::RID",
+					"name": "included_regions",
+					"setter": "set_included_regions",
+					"getter": "get_included_regions"
 				}
 			]
 		},
