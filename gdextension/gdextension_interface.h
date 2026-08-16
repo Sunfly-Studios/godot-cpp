@@ -864,7 +864,7 @@ typedef void *(*GDExtensionInterfaceMemAllocAligned)(size_t p_bytes, size_t p_al
  * @return A pointer to the allocated memory, or NULL if unsuccessful.
  */
 typedef void *(*GDExtensionInterfaceMemReallocAligned)(void *p_ptr, size_t p_bytes, size_t p_prev_bytes, size_t p_alignment);
-  
+ 
 /**
  * @name mem_free_aligned
  * @since 4.4
