@@ -32,6 +32,7 @@
 #define GODOT_SORT_ARRAY_HPP
 
 #include <godot_cpp/core/error_macros.hpp>
+#include <functional> // for std::less
 
 namespace godot {
 
@@ -43,7 +44,9 @@ namespace godot {
 
 template <typename T>
 struct _DefaultComparator {
-	_FORCE_INLINE_ bool operator()(const T &a, const T &b) const { return (a < b); }
+	_FORCE_INLINE_ bool operator()(const T &a, const T &b) const {
+		return std::less<>{}(a, b);
+	}
 };
 
 #ifdef DEBUG_ENABLED
@@ -252,9 +255,17 @@ public:
 	inline void unguarded_linear_insert(int p_last, T p_value, T *p_array) const {
 		int next = p_last - 1;
 		while (compare(p_value, p_array[next])) {
-			if (Validate) {
+#ifdef DEBUG_ENABLED
+			if constexpr (Validate) {
 				ERR_BAD_COMPARE(next == 0);
 			}
+#else
+			// Silences GCC warning about invoking
+			// UB.
+			if (unlikely(next == 0)) {
+				break;
+			}
+#endif
 			p_array[p_last] = p_array[next];
 			p_last = next;
 			next--;

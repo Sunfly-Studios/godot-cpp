@@ -54,6 +54,9 @@ GDExtensionInterfaceGetGodotVersion gdextension_interface_get_godot_version = nu
 GDExtensionInterfaceMemAlloc gdextension_interface_mem_alloc = nullptr;
 GDExtensionInterfaceMemRealloc gdextension_interface_mem_realloc = nullptr;
 GDExtensionInterfaceMemFree gdextension_interface_mem_free = nullptr;
+GDExtensionInterfaceMemAllocAligned gdextension_interface_mem_alloc_aligned = nullptr;
+GDExtensionInterfaceMemReallocAligned gdextension_interface_mem_realloc_aligned = nullptr;
+GDExtensionInterfaceMemFreeAligned gdextension_interface_mem_free_aligned = nullptr;
 GDExtensionInterfacePrintError gdextension_interface_print_error = nullptr;
 GDExtensionInterfacePrintErrorWithMessage gdextension_interface_print_error_with_message = nullptr;
 GDExtensionInterfacePrintWarning gdextension_interface_print_warning = nullptr;
@@ -337,6 +340,9 @@ GDExtensionBool GDExtensionBinding::init(GDExtensionInterfaceGetProcAddress p_ge
 	LOAD_PROC_ADDRESS(mem_alloc, GDExtensionInterfaceMemAlloc);
 	LOAD_PROC_ADDRESS(mem_realloc, GDExtensionInterfaceMemRealloc);
 	LOAD_PROC_ADDRESS(mem_free, GDExtensionInterfaceMemFree);
+	LOAD_PROC_ADDRESS(mem_alloc_aligned, GDExtensionInterfaceMemAllocAligned);
+	LOAD_PROC_ADDRESS(mem_realloc_aligned, GDExtensionInterfaceMemReallocAligned);
+	LOAD_PROC_ADDRESS(mem_free_aligned, GDExtensionInterfaceMemFreeAligned);
 	LOAD_PROC_ADDRESS(print_error_with_message, GDExtensionInterfacePrintErrorWithMessage);
 	LOAD_PROC_ADDRESS(print_warning, GDExtensionInterfacePrintWarning);
 	LOAD_PROC_ADDRESS(print_warning_with_message, GDExtensionInterfacePrintWarningWithMessage);

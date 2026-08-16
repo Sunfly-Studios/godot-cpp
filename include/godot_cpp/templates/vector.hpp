@@ -45,15 +45,20 @@
 #include <climits>
 #include <initializer_list>
 
+#include <type_traits>
+#include <utility>
+
 namespace godot {
 
 template <typename T>
 class VectorWriteProxy {
 public:
 	_FORCE_INLINE_ T &operator[](typename CowData<T>::Size p_index) {
-		CRASH_BAD_INDEX(p_index, ((Vector<T> *)(this))->_cowdata.size());
+		// Vector<T> is standard-layout and this is the first member.
+		Vector<T> *vec = reinterpret_cast<Vector<T> *>(this);
+		CRASH_BAD_INDEX(p_index, vec->_cowdata.size());
 
-		return ((Vector<T> *)(this))->_cowdata.ptrw()[p_index];
+		return vec->_cowdata.ptrw()[p_index];
 	}
 };
 
@@ -65,7 +70,9 @@ public:
 	VectorWriteProxy<T> write;
 	typedef typename CowData<T>::Size Size;
 
-private:
+	// Moved to public to ensure Vector<T> satisfies std::is_standard_layout.
+	// This guarantees pointer-interconvertibility between Vector<T> and its first member (write).
+	// DO NOT ACCESS DIRECTLY.
 	CowData<T> _cowdata;
 
 public:
@@ -146,8 +153,11 @@ public:
 		insert(i, p_val);
 	}
 
-	inline void operator=(const Vector &p_from) {
+	void operator=(const Vector &p_from) {
 		_cowdata._ref(p_from._cowdata);
+	}
+	void operator=(Vector &&p_from) noexcept {
+		_cowdata = std::move(p_from._cowdata);
 	}
 
 	Vector<uint8_t> to_byte_array() const {
@@ -155,8 +165,11 @@ public:
 		if (is_empty()) {
 			return ret;
 		}
-		ret.resize(size() * sizeof(T));
-		memcpy(ret.ptrw(), ptr(), sizeof(T) * size());
+		size_t alloc_size = size() * sizeof(T);
+		ret.resize(alloc_size);
+		if (alloc_size) {
+			memcpy(ret.ptrw(), ptr(), alloc_size);
+		}
 		return ret;
 	}
 
@@ -268,30 +281,31 @@ public:
 		return Iterator(ptrw());
 	}
 	_FORCE_INLINE_ Iterator end() {
-		return Iterator(ptrw() + size());
+		T *p = ptrw();
+		// Prevent null pointer arithmetic when size is 0
+		return Iterator(p ? (p + size()) : nullptr);
 	}
 
 	_FORCE_INLINE_ ConstIterator begin() const {
 		return ConstIterator(ptr());
 	}
 	_FORCE_INLINE_ ConstIterator end() const {
-		return ConstIterator(ptr() + size());
+		const T *p = ptr();
+		return ConstIterator(p ? (p + size()) : nullptr);
 	}
 
 	_FORCE_INLINE_ Vector() {}
-	_FORCE_INLINE_ Vector(std::initializer_list<T> p_init) {
-		Error err = _cowdata.resize(p_init.size());
-		ERR_FAIL_COND(err);
-
-		Size i = 0;
-		for (const T &element : p_init) {
-			_cowdata.set(i++, element);
-		}
-	}
+	_FORCE_INLINE_ Vector(std::initializer_list<T> p_init) :
+			_cowdata(p_init) {}
 	_FORCE_INLINE_ Vector(const Vector &p_from) { _cowdata._ref(p_from._cowdata); }
+	_FORCE_INLINE_ Vector(Vector &&p_from) noexcept :
+			_cowdata(std::move(p_from._cowdata)) {}
 
 	_FORCE_INLINE_ ~Vector() {}
 };
+
+static_assert(std::is_standard_layout_v<Vector<void *>>,
+	"Vector<T> must remain standard-layout for safe VectorWriteProxy casting.");
 
 template <typename T>
 void Vector<T>::reverse() {

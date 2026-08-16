@@ -125,7 +125,7 @@ private:
 	static GDExtensionObjectPtr _create_instance_func(void *data, GDExtensionBool p_notify_postinitialize) {
 		if constexpr (!std::is_abstract_v<T>) {
 			Wrapped::_set_construct_info<T>();
-			T *new_object = new ("", "") T;
+			T *new_object = ::new ("", "") T;
 			if (p_notify_postinitialize) {
 				new_object->_postinitialize();
 			}

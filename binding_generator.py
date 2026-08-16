@@ -83,7 +83,7 @@ def generate_wrappers(target):
 
 def generate_virtual_version(argcount, const=False, returns=False, required=False):
     s = """#define GDVIRTUAL$VER($RET m_name $ARG)\\
-	_FORCE_INLINE_ bool _gdvirtual_##m_name##_call($CALLARGS) $CONST {\\
+	_NO_INLINE_ bool _gdvirtual_##m_name##_call_fallback($CALLARGS) $CONST {\\
 		using ThisClass = std::remove_pointer_t<decltype(this)>;\\
 		static const ::godot::StringName _gdvirtual_##m_name##_sn = #m_name;\\
 		if (::godot::internal::gdextension_interface_object_has_script_method(_owner, &_gdvirtual_##m_name##_sn)) { \\
@@ -103,6 +103,11 @@ def generate_virtual_version(argcount, const=False, returns=False, required=Fals
         $REQCHECK\\
         $RVOID\\
 		return false;\\
+	}\\
+    $TRAIT_DEF
+	template <typename T_Exact> \\
+	_FORCE_INLINE_ bool _gdvirtual_##m_name##_call($CALLARGS) $CONST {\\
+        $CRTP_FAST_PATH\\
 	}\\
 	_FORCE_INLINE_ bool _gdvirtual_##m_name##_overridden() const {\\
 		static const ::godot::StringName _gdvirtual_##m_name##_sn = #m_name;\\
@@ -155,6 +160,11 @@ def generate_virtual_version(argcount, const=False, returns=False, required=Fals
     callsiargs = ""
     callsiargptrs = ""
     callsi_cleanup = ""
+    
+    callargs_raw_pass = ""
+    callargs_pass_to_fallback = ""
+    declval_args = ""
+    
     if argcount > 0:
         argtext += ", "
         callsiargs = f"\t\t\t::godot::Variant *vargs = SAFE_ALLOCA_ARRAY(::godot::Variant, {argcount});\\\n"
@@ -163,14 +173,70 @@ def generate_virtual_version(argcount, const=False, returns=False, required=Fals
         if i > 0:
             argtext += ", "
             callargtext += ", "
+            callargs_raw_pass += ", "
+            callargs_pass_to_fallback += ", "
+            declval_args += ", "
+            
         argtext += f"m_type{i + 1}"
         callargtext += f"m_type{i + 1} arg{i + 1}"
+        
+        callargs_raw_pass += f"arg{i + 1}"
+        callargs_pass_to_fallback += f"arg{i + 1}"
+        declval_args += f"std::declval<std::add_lvalue_reference_t<m_type{i + 1}>>()"
+        
         callsiargs += f"\t\t\t::new ((void *)&vargs[{i}]) ::godot::Variant(arg{i + 1});\\\n"
         callsiargptrs += f"\t\t\tvargptrs[{i}] = &vargs[{i}];\\\n"
         callsi_cleanup += f"\t\t\tvargs[{i}].~Variant();\\\n"
         
         method_info += f"\t\tmethod_info.arguments.push_back(::godot::GetTypeInfo<m_type{i + 1}>::get_class_info());\\\n"
         method_info += f"\t\tmethod_info.arguments_metadata.push_back(::godot::GetTypeInfo<m_type{i + 1}>::METADATA);\\\n"
+
+    if returns:
+        trait_def = f"""\ttemplate <typename T_Check> \\
+\tstruct _gdvirtual_##m_name##_trait {{ \\
+\t\ttemplate <typename U> static auto test(int) -> decltype(std::declval<U>().m_name({declval_args})); \\
+\t\ttemplate <typename> static std::false_type test(...); \\
+\t\tusing RetType = decltype(test<T_Check>(0)); \\
+\t\tstatic constexpr bool value = !std::is_same_v<std::remove_cv_t<T_Check>, self_type> && !std::is_same_v<RetType, std::false_type> && std::is_convertible_v<RetType, m_ret>; \\
+\t}}; \\"""
+    else:
+        trait_def = f"""\ttemplate <typename T_Check> \\
+\tstruct _gdvirtual_##m_name##_trait {{ \\
+\t\ttemplate <typename U> static auto test(int) -> decltype(std::declval<U>().m_name({declval_args}), std::true_type()); \\
+\t\ttemplate <typename> static std::false_type test(...); \\
+\t\tstatic constexpr bool value = !std::is_same_v<std::remove_cv_t<T_Check>, self_type> && decltype(test<T_Check>(0))::value; \\
+\t}}; \\"""
+
+    s = s.replace("$TRAIT_DEF\n", trait_def + "\n")
+
+    if returns:
+        if argcount > 0:
+            callargtext += ", "
+            callargs_pass_to_fallback += ", "
+        callargtext += "m_ret &r_ret"
+        callargs_pass_to_fallback += "r_ret"
+        
+        crtp_fast_path = f"""\t\tT_Exact* p_instance = static_cast<T_Exact*>(const_cast<std::remove_cv_t<std::remove_pointer_t<decltype(this)>>*>(this));\\
+\t\tif constexpr (_gdvirtual_##m_name##_trait<T_Exact>::value) {{\\
+\t\t\tif constexpr (std::is_void_v<decltype(std::declval<T_Exact>().m_name({declval_args}))>) {{\\
+\t\t\t\tp_instance->m_name({callargs_raw_pass});\\
+\t\t\t}} else {{\\
+\t\t\t\tr_ret = (m_ret)p_instance->m_name({callargs_raw_pass});\\
+\t\t\t}}\\
+\t\t\treturn true;\\
+\t\t}} else {{\\
+\t\t\treturn _gdvirtual_##m_name##_call_fallback({callargs_pass_to_fallback});\\
+\t\t}}"""
+    else:
+        crtp_fast_path = f"""\t\tT_Exact* p_instance = static_cast<T_Exact*>(const_cast<std::remove_cv_t<std::remove_pointer_t<decltype(this)>>*>(this));\\
+\t\tif constexpr (_gdvirtual_##m_name##_trait<T_Exact>::value) {{\\
+\t\t\tp_instance->m_name({callargs_raw_pass});\\
+\t\t\treturn true;\\
+\t\t}} else {{\\
+\t\t\treturn _gdvirtual_##m_name##_call_fallback({callargs_pass_to_fallback});\\
+\t\t}}"""
+
+    s = s.replace("$CRTP_FAST_PATH", crtp_fast_path)
 
     if argcount:
         s = s.replace("$CALLSIARGS\\\n", callsiargs + callsiargptrs)
@@ -182,9 +248,6 @@ def generate_virtual_version(argcount, const=False, returns=False, required=Fals
         s = s.replace("$CALLSICLEANUP\\\n", "")
 
     if returns:
-        if argcount > 0:
-            callargtext += ", "
-        callargtext += "m_ret &r_ret"
         s = s.replace("$CALLSIRET\\\n", "\t\t\t\tr_ret = ::godot::VariantCaster<m_ret>::cast(ret);\\\n")
     else:
         s = s.replace("$CALLSIRET\\\n", "")
@@ -207,6 +270,7 @@ def generate_virtuals(target):
 #define GDEXTENSION_GDVIRTUAL_GEN_H
 
 #include <type_traits>
+#include <utility>
 """
 
     for i in range(max_versions + 1):

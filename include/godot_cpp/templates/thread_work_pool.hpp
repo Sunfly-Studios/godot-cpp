@@ -101,7 +101,7 @@ public:
 
 		index.store(0, std::memory_order_release);
 
-		Work<C, M, U> *w = new (Work<C, M, U>);
+		Work<C, M, U> *w = ::new (Work<C, M, U>);
 		w->instance = p_instance;
 		w->userdata = p_userdata;
 		w->method = p_method;
@@ -141,7 +141,7 @@ public:
 		}
 
 		threads_working = 0;
-		delete current_work;
+		::delete current_work;
 		current_work = nullptr;
 	}
 
@@ -171,7 +171,7 @@ public:
 		}
 
 		thread_count = p_thread_count;
-		threads = new ThreadData[thread_count];
+		threads = ::new ThreadData[thread_count];
 
 		for (uint32_t i = 0; i < thread_count; i++) {
 			threads[i].exit.store(false);
@@ -192,7 +192,7 @@ public:
 			threads[i].thread.join();
 		}
 
-		delete[] (threads);
+		::delete[] (threads);
 		threads = nullptr;
 	}
 	~ThreadWorkPool() {

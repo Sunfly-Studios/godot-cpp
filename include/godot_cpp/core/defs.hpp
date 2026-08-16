@@ -74,6 +74,33 @@ namespace godot {
 #endif
 #endif
 
+// Prevent inline, no matter what.
+#ifndef _NO_INLINE_
+#if defined(_MSC_VER)
+#define _NO_INLINE_ __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define _NO_INLINE_ __attribute__((noinline))
+#else
+#define _NO_INLINE_
+#endif
+#endif
+
+// Some platforms may not natievly support atomics, but the compiler
+// can emulate it in software.
+#define GODOT_REQUIRE_LOCK_FREE_ATOMICS 1
+
+// Platform list
+#if defined(__powerpc__) && !defined(__powerpc64__) // 32-bit PPC
+	#undef GODOT_REQUIRE_LOCK_FREE_ATOMICS
+	#define GODOT_REQUIRE_LOCK_FREE_ATOMICS 0
+#elif defined(__arc__) // 32-bit ARC
+	#undef GODOT_REQUIRE_LOCK_FREE_ATOMICS
+	#define GODOT_REQUIRE_LOCK_FREE_ATOMICS 0
+#elif defined(__arm__) && defined(__ARM_ARCH) && (__ARM_ARCH < 6) // armv5 or lower
+	#undef GODOT_REQUIRE_LOCK_FREE_ATOMICS
+	#define GODOT_REQUIRE_LOCK_FREE_ATOMICS 0
+#endif
+
 // Windows badly defines a lot of stuff we'll never use. Undefine it.
 #ifdef _WIN32
 #undef min // override standard definition

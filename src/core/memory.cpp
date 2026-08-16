@@ -93,6 +93,29 @@ void Memory::free_static(void *p_ptr, bool p_pad_align) {
 	internal::gdextension_interface_mem_free(mem);
 }
 
+void *Memory::alloc_aligned_static(size_t p_bytes, size_t p_alignment) {
+	return internal::gdextension_interface_mem_alloc_aligned(p_bytes, p_alignment);
+}
+
+void *Memory::realloc_aligned_static(void *p_memory, size_t p_bytes, size_t p_prev_bytes, size_t p_alignment) {
+	if (p_memory == nullptr) {
+		return alloc_aligned_static(p_bytes, p_alignment);
+	} else if (p_bytes == 0) {
+		free_aligned_static(p_memory);
+		return nullptr;
+	}
+	
+	return internal::gdextension_interface_mem_realloc_aligned(p_memory, p_bytes, p_prev_bytes, p_alignment);
+}
+
+void Memory::free_aligned_static(void *p_memory) {
+	if (p_memory == nullptr) {
+		return;
+	}
+	
+	internal::gdextension_interface_mem_free_aligned(p_memory);
+}
+
 _GlobalNil::_GlobalNil() {
 	left = this;
 	right = this;

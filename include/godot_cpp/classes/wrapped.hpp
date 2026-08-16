@@ -39,6 +39,7 @@
 #include <godot_cpp/templates/vector.hpp>
 
 #include <godot_cpp/godot.hpp>
+#include <type_traits>
 
 #if defined(MACOS_ENABLED) && defined(HOT_RELOAD_ENABLED)
 #include <mutex>
@@ -56,6 +57,22 @@ typedef void GodotObject;
 
 template <typename T, std::enable_if_t<std::is_base_of<::godot::Wrapped, T>::value, bool> = true>
 _ALWAYS_INLINE_ void _pre_initialize();
+
+class Wrapped;
+
+struct WrappedVTable {
+	bool (*setv)(Wrapped *, const StringName &, const Variant &);
+	bool (*getv)(const Wrapped *, const StringName &, Variant &);
+	void (*get_property_listv)(const Wrapped *, List<PropertyInfo> *);
+	void (*validate_propertyv)(const Wrapped *, PropertyInfo &);
+	bool (*property_can_revertv)(const Wrapped *, const StringName &);
+	bool (*property_get_revertv)(const Wrapped *, const StringName &, Variant &);
+	void (*notificationv)(Wrapped *, int, bool);
+	String (*to_stringv)(const Wrapped *);
+};
+
+template <typename T>
+struct ClassMethodDispatcher;
 
 // Base for all engine classes, to contain the pointer to the engine instance.
 class Wrapped {
@@ -96,34 +113,16 @@ protected:
 	void _validate_property(PropertyInfo &p_property) const {}
 	String _to_string() const { return "[" + String(get_class_static()) + ":" + itos(get_instance_id()) + "]"; }
 
-	// Static function pointer signatures
-	typedef bool (*GetStub)(const Wrapped *, const StringName &, Variant &);
-	typedef bool (*SetStub)(Wrapped *, const StringName &, const Variant &);
-	typedef void (*PropertyListStub)(const Wrapped *, List<PropertyInfo> *);
-	typedef void (*ValidatePropertyStub)(const Wrapped *, PropertyInfo &);
-	typedef bool (*PropertyCanRevertStub)(const Wrapped *, const StringName &);
-	typedef bool (*PropertyGetRevertStub)(const Wrapped *, const StringName &, Variant &);
-	typedef void (*NotificationStub)(Wrapped *, int);
-	typedef String (*ToStringStub)(const Wrapped *);
+	virtual const WrappedVTable *_get_gd_vtable() const { return nullptr; }
 
-	// Default static methods for base class fallback
-	static bool _get_bind_static(const Wrapped *p_this, const StringName &p_name, Variant &r_ret) { return const_cast<Wrapped *>(p_this)->_get(p_name, r_ret); }
-	static bool _set_bind_static(Wrapped *p_this, const StringName &p_name, const Variant &p_value) { return p_this->_set(p_name, p_value); }
-	static void _get_property_list_bind_static(const Wrapped *p_this, List<PropertyInfo> *p_list) { p_this->_get_property_list(p_list); }
-	static void _validate_property_bind_static(const Wrapped *p_this, PropertyInfo &p_property) { p_this->_validate_property(p_property); }
-	static bool _property_can_revert_bind_static(const Wrapped *p_this, const StringName &p_name) { return p_this->_property_can_revert(p_name); }
-	static bool _property_get_revert_bind_static(const Wrapped *p_this, const StringName &p_name, Variant &r_ret) { return p_this->_property_get_revert(p_name, r_ret); }
-	static void _notification_bind_static(Wrapped *p_this, int p_notification) { p_this->_notification(p_notification); }
-	static String _to_string_bind_static(const Wrapped *p_this) { return p_this->_to_string(); }
-
-	_FORCE_INLINE_ GetStub _get_get() const { return &Wrapped::_get_bind_static; }
-	_FORCE_INLINE_ SetStub _get_set() const { return &Wrapped::_set_bind_static; }
-	_FORCE_INLINE_ PropertyListStub _get_get_property_list() const { return &Wrapped::_get_property_list_bind_static; }
-	_FORCE_INLINE_ ValidatePropertyStub _get_validate_property() const { return &Wrapped::_validate_property_bind_static; }
-	_FORCE_INLINE_ PropertyCanRevertStub _get_property_can_revert() const { return &Wrapped::_property_can_revert_bind_static; }
-	_FORCE_INLINE_ PropertyGetRevertStub _get_property_get_revert() const { return &Wrapped::_property_get_revert_bind_static; }
-	_FORCE_INLINE_ NotificationStub _get_notification() const { return &Wrapped::_notification_bind_static; }
-	_FORCE_INLINE_ ToStringStub _get_to_string() const { return &Wrapped::_to_string_bind_static; }
+	static bool _call_set_bind(Wrapped *p_this, const StringName &p_name, const Variant &p_property) { return false; }
+	static bool _call_get_bind(const Wrapped *p_this, const StringName &p_name, Variant &r_ret) { return false; }
+	static void _call_get_property_list_bind(const Wrapped *p_this, List<PropertyInfo> *p_list) {}
+	static void _call_validate_property_bind(const Wrapped *p_this, PropertyInfo &p_property) {}
+	static bool _call_property_can_revert_bind(const Wrapped *p_this, const StringName &p_name) { return false; }
+	static bool _call_property_get_revert_bind(const Wrapped *p_this, const StringName &p_name, Variant &r_ret) { return false; }
+	static void _call_notification_bind(Wrapped *p_this, int p_notification, bool p_reversed) {}
+	static String _call_to_string_bind(const Wrapped *p_this) { return p_this->_to_string(); }
 
 	// The only reason this has to be held here, is when we return results of `_get_property_list` to Godot, we pass
 	// pointers to strings in this list. They have to remain valid to pass the bridge, until the list is freed by Godot...
@@ -147,6 +146,32 @@ public:
 
 	// Must be public but you should not touch this.
 	GodotObject *_owner = nullptr;
+};
+
+template <typename T>
+struct ClassMethodDispatcher {
+	static bool setv(Wrapped *obj, const StringName &p_name, const Variant &p_property) { return T::_call_set_bind(static_cast<T *>(obj), p_name, p_property); }
+	static bool getv(const Wrapped *obj, const StringName &p_name, Variant &r_ret) { return T::_call_get_bind(static_cast<const T *>(obj), p_name, r_ret); }
+	static void get_property_listv(const Wrapped *obj, List<PropertyInfo> *p_list) { T::_call_get_property_list_bind(static_cast<const T *>(obj), p_list); }
+	static void validate_propertyv(const Wrapped *obj, PropertyInfo &p_property) { T::_call_validate_property_bind(static_cast<const T *>(obj), p_property); }
+	static bool property_can_revertv(const Wrapped *obj, const StringName &p_name) { return T::_call_property_can_revert_bind(static_cast<const T *>(obj), p_name); }
+	static bool property_get_revertv(const Wrapped *obj, const StringName &p_name, Variant &r_ret) { return T::_call_property_get_revert_bind(static_cast<const T *>(obj), p_name, r_ret); }
+	static void notificationv(Wrapped *obj, int p_notification, bool p_reversed) { T::_call_notification_bind(static_cast<T *>(obj), p_notification, p_reversed); }
+	static String to_stringv(const Wrapped *obj) { return T::_call_to_string_bind(static_cast<const T *>(obj)); }
+
+	static const WrappedVTable vtable;
+};
+
+template <typename T>
+const WrappedVTable ClassMethodDispatcher<T>::vtable = {
+	&ClassMethodDispatcher<T>::setv,
+	&ClassMethodDispatcher<T>::getv,
+	&ClassMethodDispatcher<T>::get_property_listv,
+	&ClassMethodDispatcher<T>::validate_propertyv,
+	&ClassMethodDispatcher<T>::property_can_revertv,
+	&ClassMethodDispatcher<T>::property_get_revertv,
+	&ClassMethodDispatcher<T>::notificationv,
+	&ClassMethodDispatcher<T>::to_stringv
 };
 
 template <typename T, std::enable_if_t<std::is_base_of<::godot::Wrapped, T>::value, bool>>
@@ -213,6 +238,7 @@ private:                                                                        
 																																													   \
 protected:                                                                                                                                                                             \
 	virtual bool _is_extension_class() const override { return true; }                                                                                                                 \
+	virtual const ::godot::WrappedVTable *_get_gd_vtable() const override { return &::godot::ClassMethodDispatcher<m_class>::vtable; }                                                 \
 																																													   \
 	static const ::godot::StringName *_get_extension_class_name() {                                                                                                                    \
 		const ::godot::StringName &string_name = get_class_static();                                                                                                                   \
@@ -223,108 +249,81 @@ protected:                                                                      
 		return &m_class::_bind_methods;                                                                                                                                                \
 	}                                                                                                                                                                                  \
 																																													   \
-	static void _notification_bind_static(::godot::Wrapped *p_this, int p_notification) {                                                                                              \
-		static_cast<m_class *>(p_this)->_notification(p_notification);                                                                                                                 \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::NotificationStub _get_notification() {                                                                                                                    \
-		if constexpr (std::is_same_v<decltype(&m_class::_notification), void (m_class::*)(int)>) {                                                                                     \
-			return &_notification_bind_static;                                                                                                                                         \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_notification();                                                                                                                                    \
-		}                                                                                                                                                                              \
-	}                                                                                                                                                                                  \
-																																													   \
-	static bool _set_bind_static(::godot::Wrapped *p_this, const ::godot::StringName &p_name, const ::godot::Variant &p_property) {                                                    \
-		return static_cast<m_class *>(p_this)->_set(p_name, p_property);                                                                                                               \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::SetStub _get_set() {                                                                                                                                      \
+public:                                                                                                                                                                                \
+	static bool _call_set_bind(m_class *p_this, const ::godot::StringName &p_name, const ::godot::Variant &p_property) {                                                               \
 		if constexpr (std::is_same_v<decltype(&m_class::_set), bool (m_class::*)(const ::godot::StringName &, const ::godot::Variant &)>) {                                            \
-			return &_set_bind_static;                                                                                                                                                  \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_set();                                                                                                                                             \
+			if (p_this->_set(p_name, p_property)) {                                                                                                                                    \
+				return true;                                                                                                                                                           \
+			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
+		return m_inherits::_call_set_bind(p_this, p_name, p_property);                                                                                                                 \
 	}                                                                                                                                                                                  \
 																																													   \
-	static bool _get_bind_static(const ::godot::Wrapped *p_this, const ::godot::StringName &p_name, ::godot::Variant &r_ret) {                                                         \
-		return static_cast<const m_class *>(p_this)->_get(p_name, r_ret);                                                                                                              \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::GetStub _get_get() {                                                                                                                                      \
+	static bool _call_get_bind(const m_class *p_this, const ::godot::StringName &p_name, ::godot::Variant &r_ret) {                                                                    \
 		if constexpr (std::is_same_v<decltype(&m_class::_get), bool (m_class::*)(const ::godot::StringName &, ::godot::Variant &) const>) {                                            \
-			return &_get_bind_static;                                                                                                                                                  \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_get();                                                                                                                                             \
+			if (p_this->_get(p_name, r_ret)) {                                                                                                                                         \
+				return true;                                                                                                                                                           \
+			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
+		return m_inherits::_call_get_bind(p_this, p_name, r_ret);                                                                                                                      \
 	}                                                                                                                                                                                  \
 																																													   \
-	static void _get_property_list_bind_static(const ::godot::Wrapped *p_this, ::godot::List<::godot::PropertyInfo> *p_list) {                                                         \
-		static_cast<const m_class *>(p_this)->_get_property_list(p_list);                                                                                                              \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::PropertyListStub _get_get_property_list() {                                                                                                               \
+	static void _call_get_property_list_bind(const m_class *p_this, ::godot::List<::godot::PropertyInfo> *p_list) {                                                                    \
+		m_inherits::_call_get_property_list_bind(p_this, p_list);                                                                                                                      \
 		if constexpr (std::is_same_v<decltype(&m_class::_get_property_list), void (m_class::*)(::godot::List<::godot::PropertyInfo> *) const>) {                                       \
-			return &_get_property_list_bind_static;                                                                                                                                    \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_get_property_list();                                                                                                                               \
+			p_this->_get_property_list(p_list);                                                                                                                                        \
 		}                                                                                                                                                                              \
 	}                                                                                                                                                                                  \
 																																													   \
-	static bool _property_can_revert_bind_static(const ::godot::Wrapped *p_this, const ::godot::StringName &p_name) {                                                                  \
-		return static_cast<const m_class *>(p_this)->_property_can_revert(p_name);                                                                                                     \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::PropertyCanRevertStub _get_property_can_revert() {                                                                                                        \
+	static bool _call_property_can_revert_bind(const m_class *p_this, const ::godot::StringName &p_name) {                                                                             \
 		if constexpr (std::is_same_v<decltype(&m_class::_property_can_revert), bool (m_class::*)(const ::godot::StringName &) const>) {                                                \
-			return &_property_can_revert_bind_static;                                                                                                                                  \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_property_can_revert();                                                                                                                             \
+			if (p_this->_property_can_revert(p_name)) {                                                                                                                                \
+				return true;                                                                                                                                                           \
+			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
+		return m_inherits::_call_property_can_revert_bind(p_this, p_name);                                                                                                             \
 	}                                                                                                                                                                                  \
 																																													   \
-	static bool _property_get_revert_bind_static(const ::godot::Wrapped *p_this, const ::godot::StringName &p_name, ::godot::Variant &r_ret) {                                         \
-		return static_cast<const m_class *>(p_this)->_property_get_revert(p_name, r_ret);                                                                                              \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::PropertyGetRevertStub _get_property_get_revert() {                                                                                                        \
+	static bool _call_property_get_revert_bind(const m_class *p_this, const ::godot::StringName &p_name, ::godot::Variant &r_ret) {                                                    \
 		if constexpr (std::is_same_v<decltype(&m_class::_property_get_revert), bool (m_class::*)(const ::godot::StringName &, ::godot::Variant &) const>) {                            \
-			return &_property_get_revert_bind_static;                                                                                                                                  \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_property_get_revert();                                                                                                                             \
+			if (p_this->_property_get_revert(p_name, r_ret)) {                                                                                                                         \
+				return true;                                                                                                                                                           \
+			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
+		return m_inherits::_call_property_get_revert_bind(p_this, p_name, r_ret);                                                                                                      \
 	}                                                                                                                                                                                  \
 																																													   \
-	static void _validate_property_bind_static(const ::godot::Wrapped *p_this, ::godot::PropertyInfo &p_property) {                                                                    \
-		static_cast<const m_class *>(p_this)->_validate_property(p_property);                                                                                                          \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::ValidatePropertyStub _get_validate_property() {                                                                                                           \
+	static void _call_validate_property_bind(const m_class *p_this, ::godot::PropertyInfo &p_property) {                                                                               \
+		m_inherits::_call_validate_property_bind(p_this, p_property);                                                                                                                  \
 		if constexpr (std::is_same_v<decltype(&m_class::_validate_property), void (m_class::*)(::godot::PropertyInfo &) const>) {                                                      \
-			return &_validate_property_bind_static;                                                                                                                                    \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_validate_property();                                                                                                                               \
+			p_this->_validate_property(p_property);                                                                                                                                    \
 		}                                                                                                                                                                              \
 	}                                                                                                                                                                                  \
 																																													   \
-	static ::godot::String _to_string_bind_static(const ::godot::Wrapped *p_this) {                                                                                                    \
-		return static_cast<const m_class *>(p_this)->_to_string();                                                                                                                     \
+	static void _call_notification_bind(m_class *p_this, int p_notification, bool p_reversed) {                                                                                        \
+		if (!p_reversed) {                                                                                                                                                             \
+			m_inherits::_call_notification_bind(p_this, p_notification, p_reversed);                                                                                                   \
+		}                                                                                                                                                                              \
+		if constexpr (std::is_same_v<decltype(&m_class::_notification), void (m_class::*)(int)>) {                                                                                     \
+			p_this->_notification(p_notification);                                                                                                                                     \
+		}                                                                                                                                                                              \
+		if (p_reversed) {                                                                                                                                                              \
+			m_inherits::_call_notification_bind(p_this, p_notification, p_reversed);                                                                                                   \
+		}                                                                                                                                                                              \
 	}                                                                                                                                                                                  \
 																																													   \
-	static ::godot::Wrapped::ToStringStub _get_to_string() {                                                                                                                           \
+	static ::godot::String _call_to_string_bind(const m_class *p_this) {                                                                                                               \
 		if constexpr (std::is_same_v<decltype(&m_class::_to_string), ::godot::String (m_class::*)() const>) {                                                                          \
-			return &_to_string_bind_static;                                                                                                                                            \
-		} else {                                                                                                                                                                       \
-			return m_inherits::_get_to_string();                                                                                                                                       \
+			return p_this->_to_string();                                                                                                                                               \
 		}                                                                                                                                                                              \
+		return m_inherits::_call_to_string_bind(p_this);                                                                                                                               \
 	}                                                                                                                                                                                  \
 																																													   \
 	template <typename T, typename B>                                                                                                                                                  \
 	static void register_virtuals() {                                                                                                                                                  \
-		m_inherits::register_virtuals<T, B>();                                                                                                                                         \
+		m_inherits::template register_virtuals<T, B>();                                                                                                                                \
 	}                                                                                                                                                                                  \
 																																													   \
-public:                                                                                                                                                                                \
 	typedef m_class self_type;                                                                                                                                                         \
 	typedef m_inherits parent_type;                                                                                                                                                    \
 																																													   \
@@ -336,7 +335,7 @@ public:                                                                         
 		m_inherits::initialize_class();                                                                                                                                                \
 		if (m_class::_get_bind_methods() != m_inherits::_get_bind_methods()) {                                                                                                         \
 			_bind_methods();                                                                                                                                                           \
-			m_inherits::register_virtuals<m_class, m_inherits>();                                                                                                                      \
+			m_inherits::template register_virtuals<m_class, m_inherits>();                                                                                                             \
 		}                                                                                                                                                                              \
 		initialized = true;                                                                                                                                                            \
 	}                                                                                                                                                                                  \
@@ -351,28 +350,19 @@ public:                                                                         
 	}                                                                                                                                                                                  \
 																																													   \
 	static void notification_bind(GDExtensionClassInstancePtr p_instance, int32_t p_what, GDExtensionBool p_reversed) {                                                                \
-		if (p_instance && m_class::_get_notification()) {                                                                                                                              \
-			if (!p_reversed) {                                                                                                                                                         \
-				m_inherits::notification_bind(p_instance, p_what, p_reversed);                                                                                                         \
-			}                                                                                                                                                                          \
-			if (m_class::_get_notification() != m_inherits::_get_notification()) {                                                                                                     \
-				m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                \
-				cls->_notification(p_what);                                                                                                                                            \
-			}                                                                                                                                                                          \
-			if (p_reversed) {                                                                                                                                                          \
-				m_inherits::notification_bind(p_instance, p_what, p_reversed);                                                                                                         \
+		if (p_instance) {                                                                                                                                                              \
+			m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                    \
+			if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                            \
+				vt->notificationv(cls, p_what, p_reversed);                                                                                                                            \
 			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
 	}                                                                                                                                                                                  \
 																																													   \
 	static GDExtensionBool set_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionConstVariantPtr p_value) {                                \
 		if (p_instance) {                                                                                                                                                              \
-			if (m_inherits::set_bind(p_instance, p_name, p_value)) {                                                                                                                   \
-				return true;                                                                                                                                                           \
-			}                                                                                                                                                                          \
-			if (m_class::_get_set() != m_inherits::_get_set()) {                                                                                                                       \
-				m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                \
-				return cls->_set(*reinterpret_cast<const ::godot::StringName *>(p_name), *reinterpret_cast<const ::godot::Variant *>(p_value));                                        \
+			m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                    \
+			if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                            \
+				return vt->setv(cls, *reinterpret_cast<const ::godot::StringName *>(p_name), *reinterpret_cast<const ::godot::Variant *>(p_value));                                    \
 			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
 		return false;                                                                                                                                                                  \
@@ -380,19 +370,20 @@ public:                                                                         
 																																													   \
 	static GDExtensionBool get_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) {                                       \
 		if (p_instance) {                                                                                                                                                              \
-			if (m_inherits::get_bind(p_instance, p_name, r_ret)) {                                                                                                                     \
-				return true;                                                                                                                                                           \
-			}                                                                                                                                                                          \
-			if (m_class::_get_get() != m_inherits::_get_get()) {                                                                                                                       \
-				m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                \
-				return cls->_get(*reinterpret_cast<const ::godot::StringName *>(p_name), *reinterpret_cast<::godot::Variant *>(r_ret));                                                \
+			m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                    \
+			if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                            \
+				return vt->getv(cls, *reinterpret_cast<const ::godot::StringName *>(p_name), *reinterpret_cast<::godot::Variant *>(r_ret));                                            \
 			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
 		return false;                                                                                                                                                                  \
 	}                                                                                                                                                                                  \
 																																													   \
 	static inline bool has_get_property_list() {                                                                                                                                       \
-		return m_class::_get_get_property_list() && m_class::_get_get_property_list() != m_inherits::_get_get_property_list();                                                         \
+		if constexpr (std::is_same_v<decltype(&m_class::_get_property_list), void (m_class::*)(::godot::List<::godot::PropertyInfo> *) const>) {                                       \
+			return true;                                                                                                                                                               \
+		} else {                                                                                                                                                                       \
+			return m_inherits::has_get_property_list();                                                                                                                                \
+		}                                                                                                                                                                              \
 	}                                                                                                                                                                                  \
 																																													   \
 	static const GDExtensionPropertyInfo *get_property_list_bind(GDExtensionClassInstancePtr p_instance, uint32_t *r_count) {                                                          \
@@ -404,7 +395,9 @@ public:                                                                         
 		m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                        \
 		::godot::List<::godot::PropertyInfo> &plist_cpp = cls->plist_owned;                                                                                                            \
 		ERR_FAIL_COND_V_MSG(!plist_cpp.is_empty(), nullptr, "Internal error, property list was not freed by engine!");                                                                 \
-		cls->_get_property_list(&plist_cpp);                                                                                                                                           \
+		if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                                \
+			vt->get_property_listv(cls, &plist_cpp);                                                                                                                                   \
+		}                                                                                                                                                                              \
 		return ::godot::internal::create_c_property_list(plist_cpp, r_count);                                                                                                          \
 	}                                                                                                                                                                                  \
 																																													   \
@@ -417,51 +410,45 @@ public:                                                                         
 	}                                                                                                                                                                                  \
 																																													   \
 	static GDExtensionBool property_can_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name) {                                                    \
-		if (p_instance && m_class::_get_property_can_revert()) {                                                                                                                       \
-			if (m_class::_get_property_can_revert() != m_inherits::_get_property_can_revert()) {                                                                                       \
-				m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                \
-				return cls->_property_can_revert(*reinterpret_cast<const ::godot::StringName *>(p_name));                                                                              \
+		if (p_instance) {                                                                                                                                                              \
+			m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                    \
+			if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                            \
+				return vt->property_can_revertv(cls, *reinterpret_cast<const ::godot::StringName *>(p_name));                                                                          \
 			}                                                                                                                                                                          \
-			return m_inherits::property_can_revert_bind(p_instance, p_name);                                                                                                           \
 		}                                                                                                                                                                              \
 		return false;                                                                                                                                                                  \
 	}                                                                                                                                                                                  \
 																																													   \
 	static GDExtensionBool property_get_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) {                       \
-		if (p_instance && m_class::_get_property_get_revert()) {                                                                                                                       \
-			if (m_class::_get_property_get_revert() != m_inherits::_get_property_get_revert()) {                                                                                       \
-				m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                \
-				return cls->_property_get_revert(*reinterpret_cast<const ::godot::StringName *>(p_name), *reinterpret_cast<::godot::Variant *>(r_ret));                                \
+		if (p_instance) {                                                                                                                                                              \
+			m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                    \
+			if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                            \
+				return vt->property_get_revertv(cls, *reinterpret_cast<const ::godot::StringName *>(p_name), *reinterpret_cast<::godot::Variant *>(r_ret));                            \
 			}                                                                                                                                                                          \
-			return m_inherits::property_get_revert_bind(p_instance, p_name, r_ret);                                                                                                    \
 		}                                                                                                                                                                              \
 		return false;                                                                                                                                                                  \
 	}                                                                                                                                                                                  \
 																																													   \
 	static GDExtensionBool validate_property_bind(GDExtensionClassInstancePtr p_instance, GDExtensionPropertyInfo *p_property) {                                                       \
-		bool ret = false;                                                                                                                                                              \
-		if (p_instance && m_class::_get_validate_property()) {                                                                                                                         \
-			ret = m_inherits::validate_property_bind(p_instance, p_property);                                                                                                          \
-			if (m_class::_get_validate_property() != m_inherits::_get_validate_property()) {                                                                                           \
-				m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                \
+		if (p_instance) {                                                                                                                                                              \
+			m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                    \
+			if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                            \
 				::godot::PropertyInfo info(p_property);                                                                                                                                \
-				cls->_validate_property(info);                                                                                                                                         \
+				vt->validate_propertyv(cls, info);                                                                                                                                     \
 				info._update(p_property);                                                                                                                                              \
 				return true;                                                                                                                                                           \
 			}                                                                                                                                                                          \
 		}                                                                                                                                                                              \
-		return ret;                                                                                                                                                                    \
+		return false;                                                                                                                                                                  \
 	}                                                                                                                                                                                  \
 																																													   \
 	static void to_string_bind(GDExtensionClassInstancePtr p_instance, GDExtensionBool *r_is_valid, GDExtensionStringPtr r_out) {                                                      \
-		if (p_instance && m_class::_get_to_string()) {                                                                                                                                 \
-			if (m_class::_get_to_string() != m_inherits::_get_to_string()) {                                                                                                           \
-				m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                \
-				*reinterpret_cast<::godot::String *>(r_out) = cls->_to_string();                                                                                                       \
+		if (p_instance) {                                                                                                                                                              \
+			m_class *cls = reinterpret_cast<m_class *>(p_instance);                                                                                                                    \
+			if (const ::godot::WrappedVTable *vt = cls->_get_gd_vtable()) {                                                                                                            \
+				*reinterpret_cast<::godot::String *>(r_out) = vt->to_stringv(cls);                                                                                                     \
 				*r_is_valid = true;                                                                                                                                                    \
-				return;                                                                                                                                                                \
 			}                                                                                                                                                                          \
-			m_inherits::to_string_bind(p_instance, r_is_valid, r_out);                                                                                                                 \
 		}                                                                                                                                                                              \
 	}                                                                                                                                                                                  \
 																																													   \
@@ -504,47 +491,18 @@ protected:                                                                      
 	m_class(const char *p_godot_class) : m_inherits(p_godot_class) {}                                                                                                                  \
 	m_class(GodotObject *p_godot_object) : m_inherits(p_godot_object) {}                                                                                                               \
 																																													   \
+	virtual const ::godot::WrappedVTable *_get_gd_vtable() const override { return nullptr; }                                                                                          \
 	static void _bind_methods() {}                                                                                                                                                     \
+	static void (*_get_bind_methods())() { return nullptr; }                                                                                                                           \
 																																													   \
-	static void (*_get_bind_methods())() {                                                                                                                                             \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::NotificationStub _get_notification() {                                                                                                                    \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::SetStub _get_set() {                                                                                                                                      \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::GetStub _get_get() {                                                                                                                                      \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static inline bool has_get_property_list() {                                                                                                                                       \
-		return false;                                                                                                                                                                  \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::PropertyListStub _get_get_property_list() {                                                                                                               \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::PropertyCanRevertStub _get_property_can_revert() {                                                                                                        \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::PropertyGetRevertStub _get_property_get_revert() {                                                                                                        \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::ValidatePropertyStub _get_validate_property() {                                                                                                           \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
-																																													   \
-	static ::godot::Wrapped::ToStringStub _get_to_string() {                                                                                                                           \
-		return nullptr;                                                                                                                                                                \
-	}                                                                                                                                                                                  \
+	static bool _call_set_bind(m_class *p_this, const ::godot::StringName &p_name, const ::godot::Variant &p_property) { return false; }                                               \
+	static bool _call_get_bind(const m_class *p_this, const ::godot::StringName &p_name, ::godot::Variant &r_ret) { return false; }                                                    \
+	static void _call_get_property_list_bind(const m_class *p_this, ::godot::List<::godot::PropertyInfo> *p_list) {}                                                                   \
+	static void _call_validate_property_bind(const m_class *p_this, ::godot::PropertyInfo &p_property) {}                                                                              \
+	static bool _call_property_can_revert_bind(const m_class *p_this, const ::godot::StringName &p_name) { return false; }                                                             \
+	static bool _call_property_get_revert_bind(const m_class *p_this, const ::godot::StringName &p_name, ::godot::Variant &r_ret) { return false; }                                    \
+	static void _call_notification_bind(m_class *p_this, int p_notification, bool p_reversed) {}                                                                                       \
+	static ::godot::String _call_to_string_bind(const m_class *p_this) { return ""; }                                                                                                  \
 																																													   \
 public:                                                                                                                                                                                \
 	typedef m_class self_type;                                                                                                                                                         \
@@ -558,28 +516,17 @@ public:                                                                         
 	}                                                                                                                                                                                  \
 																																													   \
 	static void notification_bind(GDExtensionClassInstancePtr p_instance, int32_t p_what, GDExtensionBool p_reversed) {}                                                               \
-	static GDExtensionBool set_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionConstVariantPtr p_value) {                                \
-		return false;                                                                                                                                                                  \
-	}                                                                                                                                                                                  \
-	static GDExtensionBool get_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) {                                       \
-		return false;                                                                                                                                                                  \
-	}                                                                                                                                                                                  \
-	static GDExtensionBool property_can_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name) {                                                    \
-		return false;                                                                                                                                                                  \
-	}                                                                                                                                                                                  \
-	static GDExtensionBool property_get_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) {                       \
-		return false;                                                                                                                                                                  \
-	}                                                                                                                                                                                  \
-	static GDExtensionBool validate_property_bind(GDExtensionClassInstancePtr p_instance, GDExtensionPropertyInfo *p_property) {                                                       \
-		return false;                                                                                                                                                                  \
-	}                                                                                                                                                                                  \
+	static GDExtensionBool set_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionConstVariantPtr p_value) { return false; }                \
+	static GDExtensionBool get_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) { return false; }                       \
+	static GDExtensionBool property_can_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name) { return false; }                                    \
+	static GDExtensionBool property_get_revert_bind(GDExtensionClassInstancePtr p_instance, GDExtensionConstStringNamePtr p_name, GDExtensionVariantPtr r_ret) { return false; }       \
+	static GDExtensionBool validate_property_bind(GDExtensionClassInstancePtr p_instance, GDExtensionPropertyInfo *p_property) { return false; }                                       \
 	static void to_string_bind(GDExtensionClassInstancePtr p_instance, GDExtensionBool *r_is_valid, GDExtensionStringPtr r_out) {}                                                     \
-	static const ::godot::StringName &get_parent_class_static() {                                                                                                                      \
-		return m_inherits::get_class_static();                                                                                                                                         \
-	}                                                                                                                                                                                  \
+	static const ::godot::StringName &get_parent_class_static() { return m_inherits::get_class_static(); }                                                                             \
 																																													   \
-	static void free(void *data, GDExtensionClassInstancePtr ptr) {                                                                                                                    \
-	}                                                                                                                                                                                  \
+	static inline bool has_get_property_list() { return false; }                                                                                                                       \
+																																													   \
+	static void free(void *data, GDExtensionClassInstancePtr ptr) {}                                                                                                                   \
 																																													   \
 	static void *_gde_binding_create_callback(void *p_token, void *p_instance) {                                                                                                       \
 		/* Do not call memnew here, we don't want the post-initializer to be called */                                                                                                 \
@@ -590,9 +537,8 @@ public:                                                                         
 		reinterpret_cast<m_class *>(p_binding)->~m_class();                                                                                                                            \
 		Memory::free_static(reinterpret_cast<m_class *>(p_binding));                                                                                                                   \
 	}                                                                                                                                                                                  \
-	static GDExtensionBool _gde_binding_reference_callback(void *p_token, void *p_instance, GDExtensionBool p_reference) {                                                             \
-		return true;                                                                                                                                                                   \
-	}                                                                                                                                                                                  \
+	static GDExtensionBool _gde_binding_reference_callback(void *p_token, void *p_instance, GDExtensionBool p_reference) { return true; }                                              \
+																																													   \
 	static constexpr GDExtensionInstanceBindingCallbacks _gde_binding_callbacks = {                                                                                                    \
 		_gde_binding_create_callback,                                                                                                                                                  \
 		_gde_binding_free_callback,                                                                                                                                                    \

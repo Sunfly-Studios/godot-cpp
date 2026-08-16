@@ -37,6 +37,9 @@
 #include <godot_cpp/templates/hashfuncs.hpp>
 #include <godot_cpp/templates/pair.hpp>
 
+#include <initializer_list>
+#include <new> // For std::launder
+
 namespace godot {
 
 /**
@@ -76,48 +79,73 @@ private:
 		return hash;
 	}
 
-	_FORCE_INLINE_ uint32_t _get_probe_length(uint32_t p_pos, uint32_t p_hash, uint32_t p_capacity) const {
-		uint32_t original_pos = p_hash % p_capacity;
-		return (p_pos - original_pos + p_capacity) % p_capacity;
+	// Returns true when the probe length from `a` to `p_pos` is LESS THAN the probe length from `b` to `p_pos`.
+	_FORCE_INLINE_ static constexpr bool _probe_length_cmp(const uint32_t p_a, const uint32_t p_b, const uint32_t p_pos) {
+		if (unlikely(p_pos < p_b)) {
+			return likely(p_pos >= p_a) || p_b < p_a;
+		}
+		return p_b < p_a && likely(p_pos >= p_a);
 	}
 
 	bool _lookup_pos(const TKey &p_key, uint32_t &r_pos) const {
-		if (keys == nullptr) {
+		if (keys == nullptr || num_elements == 0) {
 			return false; // Failed lookups, no elements
 		}
 
-		uint32_t capacity = hash_table_size_primes[capacity_index];
+		const uint32_t capacity = hash_table_size_primes[capacity_index];
+		const uint64_t capacity_inv = hash_table_size_primes_inv[capacity_index];
 		uint32_t hash = _hash(p_key);
-		uint32_t pos = hash % capacity;
-		uint32_t distance = 0;
+		
+		const uint32_t start_pos = fastmod(hash, capacity_inv, capacity);
+		uint32_t pos = start_pos;
+
+		if (hashes[pos] == EMPTY_HASH) {
+			return false;
+		}
+		
+		if (hashes[pos] == hash && Comparator::compare(*std::launder(&keys[hash_to_key[pos]]), p_key)) {
+			r_pos = hash_to_key[pos];
+			return true;
+		}
 
 		while (true) {
+			pos = fastmod(pos + 1, capacity_inv, capacity);
+			
 			if (hashes[pos] == EMPTY_HASH) {
 				return false;
 			}
-
-			if (distance > _get_probe_length(pos, hashes[pos], capacity)) {
-				return false;
-			}
-
-			if (hashes[pos] == hash && Comparator::compare(keys[hash_to_key[pos]], p_key)) {
+			
+			if (hashes[pos] != hash) {
+				// Stop search if we probed further than this element.
+				if (_probe_length_cmp(fastmod(hashes[pos], capacity_inv, capacity), start_pos, pos)) {
+					return false;
+				}
+			} else if (Comparator::compare(*std::launder(&keys[hash_to_key[pos]]), p_key)) {
 				r_pos = hash_to_key[pos];
 				return true;
 			}
-
-			pos = (pos + 1) % capacity;
-			distance++;
 		}
 	}
 
 	uint32_t _insert_with_hash(uint32_t p_hash, uint32_t p_index) {
-		uint32_t capacity = hash_table_size_primes[capacity_index];
+		const uint32_t capacity = hash_table_size_primes[capacity_index];
+		const uint64_t capacity_inv = hash_table_size_primes_inv[capacity_index];
 		uint32_t hash = p_hash;
 		uint32_t index = p_index;
-		uint32_t distance = 0;
-		uint32_t pos = hash % capacity;
+
+		uint32_t start_pos = fastmod(hash, capacity_inv, capacity);
+		uint32_t pos = start_pos;
+
+		if (hashes[pos] == EMPTY_HASH) {
+			hashes[pos] = hash;
+			key_to_hash[index] = pos;
+			hash_to_key[pos] = index;
+			return pos;
+		}
 
 		while (true) {
+			pos = fastmod(pos + 1, capacity_inv, capacity);
+			
 			if (hashes[pos] == EMPTY_HASH) {
 				hashes[pos] = hash;
 				key_to_hash[index] = pos;
@@ -126,20 +154,18 @@ private:
 			}
 
 			// Not an empty slot, let's check the probing length of the existing one.
-			uint32_t existing_probe_len = _get_probe_length(pos, hashes[pos], capacity);
-			if (existing_probe_len < distance) {
+			uint32_t new_start_pos = fastmod(hashes[pos], capacity_inv, capacity);
+			if (_probe_length_cmp(new_start_pos, start_pos, pos)) {
 				key_to_hash[index] = pos;
 				SWAP(hash, hashes[pos]);
 				SWAP(index, hash_to_key[pos]);
-				distance = existing_probe_len;
+				start_pos = new_start_pos;
 			}
-
-			pos = (pos + 1) % capacity;
-			distance++;
 		}
 	}
 
 	void _resize_and_rehash(uint32_t p_new_capacity_index) {
+		uint32_t old_capacity = hash_table_size_primes[capacity_index];
 		// Capacity can't be 0.
 		capacity_index = MAX((uint32_t)MIN_CAPACITY_INDEX, p_new_capacity_index);
 
@@ -148,10 +174,23 @@ private:
 		uint32_t *old_hashes = hashes;
 		uint32_t *old_key_to_hash = key_to_hash;
 
-		hashes = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
-		keys = reinterpret_cast<TKey *>(Memory::realloc_static(keys, sizeof(TKey) * capacity));
-		key_to_hash = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
-		hash_to_key = reinterpret_cast<uint32_t *>(Memory::realloc_static(hash_to_key, sizeof(uint32_t) * capacity));
+		hashes = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
+		key_to_hash = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
+		hash_to_key = reinterpret_cast<uint32_t *>(Memory::realloc_aligned_static(hash_to_key, sizeof(uint32_t) * capacity, sizeof(uint32_t) * old_capacity, alignof(uint32_t)));
+
+		if constexpr (std::is_trivially_copyable_v<TKey>) {
+			keys = reinterpret_cast<TKey *>(Memory::realloc_aligned_static(keys, sizeof(TKey) * capacity, sizeof(TKey) * old_capacity, alignof(TKey)));
+		} else {
+			TKey *new_keys = reinterpret_cast<TKey *>(Memory::alloc_aligned_static(sizeof(TKey) * capacity, alignof(TKey)));
+			if (keys != nullptr) {
+				for (uint32_t i = 0; i < num_elements; i++) {
+					unaligned_construct<TKey>(&new_keys[i], std::move(*std::launder(&keys[i])));
+					unaligned_destroy<TKey>(&keys[i]);
+				}
+				Memory::free_aligned_static(keys);
+			}
+			keys = new_keys;
+		}
 
 		for (uint32_t i = 0; i < capacity; i++) {
 			hashes[i] = EMPTY_HASH;
@@ -162,8 +201,8 @@ private:
 			_insert_with_hash(h, i);
 		}
 
-		Memory::free_static(old_hashes);
-		Memory::free_static(old_key_to_hash);
+		Memory::free_aligned_static(old_hashes);
+		Memory::free_aligned_static(old_key_to_hash);
 	}
 
 	_FORCE_INLINE_ int32_t _insert(const TKey &p_key) {
@@ -171,10 +210,10 @@ private:
 		if (unlikely(keys == nullptr)) {
 			// Allocate on demand to save memory.
 
-			hashes = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
-			keys = reinterpret_cast<TKey *>(Memory::alloc_static(sizeof(TKey) * capacity));
-			key_to_hash = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
-			hash_to_key = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
+			hashes = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
+			keys = reinterpret_cast<TKey *>(Memory::alloc_aligned_static(sizeof(TKey) * capacity, alignof(TKey)));
+			key_to_hash = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
+			hash_to_key = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
 
 			for (uint32_t i = 0; i < capacity; i++) {
 				hashes[i] = EMPTY_HASH;
@@ -193,7 +232,7 @@ private:
 			}
 
 			uint32_t hash = _hash(p_key);
-			memnew_placement(&keys[num_elements], TKey(p_key));
+			unaligned_construct<TKey>(&keys[num_elements], p_key);
 			_insert_with_hash(hash, num_elements);
 			num_elements++;
 			return num_elements - 1;
@@ -210,14 +249,19 @@ private:
 
 		uint32_t capacity = hash_table_size_primes[capacity_index];
 
-		hashes = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
-		keys = reinterpret_cast<TKey *>(Memory::alloc_static(sizeof(TKey) * capacity));
-		key_to_hash = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
-		hash_to_key = reinterpret_cast<uint32_t *>(Memory::alloc_static(sizeof(uint32_t) * capacity));
+		hashes = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
+		keys = reinterpret_cast<TKey *>(Memory::alloc_aligned_static(sizeof(TKey) * capacity, alignof(TKey)));
+		key_to_hash = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
+		hash_to_key = reinterpret_cast<uint32_t *>(Memory::alloc_aligned_static(sizeof(uint32_t) * capacity, alignof(uint32_t)));
 
-		for (uint32_t i = 0; i < num_elements; i++) {
-			memnew_placement(&keys[i], TKey(p_other.keys[i]));
-			key_to_hash[i] = p_other.key_to_hash[i];
+		if constexpr (std::is_trivially_copyable_v<TKey>) {
+			memcpy(keys, p_other.keys, sizeof(TKey) * num_elements);
+			memcpy(key_to_hash, p_other.key_to_hash, sizeof(uint32_t) * num_elements);
+		} else {
+			for (uint32_t i = 0; i < num_elements; i++) {
+				unaligned_construct<TKey>(&keys[i], *std::launder(&p_other.keys[i]));
+				key_to_hash[i] = p_other.key_to_hash[i];
+			}
 		}
 
 		for (uint32_t i = 0; i < capacity; i++) {
@@ -237,15 +281,18 @@ public:
 	}
 
 	void clear() {
-		if (keys == nullptr) {
+		if (keys == nullptr || num_elements == 0) {
 			return;
 		}
 		uint32_t capacity = hash_table_size_primes[capacity_index];
 		for (uint32_t i = 0; i < capacity; i++) {
 			hashes[i] = EMPTY_HASH;
 		}
-		for (uint32_t i = 0; i < num_elements; i++) {
-			keys[i].~TKey();
+
+		if constexpr (!std::is_trivially_destructible_v<TKey>) {
+			for (uint32_t i = 0; i < num_elements; i++) {
+				unaligned_destroy<TKey>(&keys[i]);
+			}
 		}
 
 		num_elements = 0;
@@ -265,11 +312,12 @@ public:
 		}
 
 		uint32_t key_pos = pos;
-		pos = key_to_hash[pos]; // make hash pos
+		pos = key_to_hash[pos]; //make hash pos
 
-		uint32_t capacity = hash_table_size_primes[capacity_index];
-		uint32_t next_pos = (pos + 1) % capacity;
-		while (hashes[next_pos] != EMPTY_HASH && _get_probe_length(next_pos, hashes[next_pos], capacity) != 0) {
+		const uint32_t capacity = hash_table_size_primes[capacity_index];
+		const uint64_t capacity_inv = hash_table_size_primes_inv[capacity_index];
+		uint32_t next_pos = fastmod(pos + 1, capacity_inv, capacity);
+		while (hashes[next_pos] != EMPTY_HASH && next_pos != fastmod(hashes[next_pos], capacity_inv, capacity)) {
 			uint32_t kpos = hash_to_key[pos];
 			uint32_t kpos_next = hash_to_key[next_pos];
 			SWAP(key_to_hash[kpos], key_to_hash[kpos_next]);
@@ -277,16 +325,22 @@ public:
 			SWAP(hash_to_key[next_pos], hash_to_key[pos]);
 
 			pos = next_pos;
-			next_pos = (pos + 1) % capacity;
+			next_pos = fastmod(pos + 1, capacity_inv, capacity);
 		}
 
 		hashes[pos] = EMPTY_HASH;
-		keys[key_pos].~TKey();
+		if constexpr (!std::is_trivially_destructible_v<TKey>) {
+			unaligned_destroy<TKey>(&keys[key_pos]);
+		}
 		num_elements--;
 		if (key_pos < num_elements) {
 			// Not the last key, move the last one here to keep keys lineal
-			memnew_placement(&keys[key_pos], TKey(keys[num_elements]));
-			keys[num_elements].~TKey();
+			if constexpr (std::is_trivially_copyable_v<TKey>) {
+				memcpy(&keys[key_pos], &keys[num_elements], sizeof(TKey));
+			} else {
+				unaligned_construct<TKey>(&keys[key_pos], std::move(*std::launder(&keys[num_elements])));
+				unaligned_destroy<TKey>(&keys[num_elements]);
+			}
 			key_to_hash[key_pos] = key_to_hash[num_elements];
 			hash_to_key[key_to_hash[num_elements]] = key_pos;
 		}
@@ -319,10 +373,10 @@ public:
 
 	struct Iterator {
 		_FORCE_INLINE_ const TKey &operator*() const {
-			return keys[index];
+			return *std::launder(&keys[index]);
 		}
 		_FORCE_INLINE_ const TKey *operator->() const {
-			return &keys[index];
+			return std::launder(&keys[index]);
 		}
 		_FORCE_INLINE_ Iterator &operator++() {
 			index++;
@@ -422,10 +476,10 @@ public:
 		clear();
 
 		if (keys != nullptr) {
-			Memory::free_static(keys);
-			Memory::free_static(key_to_hash);
-			Memory::free_static(hash_to_key);
-			Memory::free_static(hashes);
+			Memory::free_aligned_static(keys);
+			Memory::free_aligned_static(key_to_hash);
+			Memory::free_aligned_static(hash_to_key);
+			Memory::free_aligned_static(hashes);
 			keys = nullptr;
 			hashes = nullptr;
 			hash_to_key = nullptr;
@@ -441,17 +495,26 @@ public:
 		reserve(p_initial_capacity);
 	}
 	HashSet() {
-		capacity_index = MIN_CAPACITY_INDEX;
+		if (keys == nullptr) {
+			capacity_index = MIN_CAPACITY_INDEX;
+		}
+	}
+
+	HashSet(std::initializer_list<TKey> p_init) {
+		reserve(p_init.size());
+		for (const TKey &E : p_init) {
+			insert(E);
+		}
 	}
 
 	void reset() {
 		clear();
 
 		if (keys != nullptr) {
-			Memory::free_static(keys);
-			Memory::free_static(key_to_hash);
-			Memory::free_static(hash_to_key);
-			Memory::free_static(hashes);
+			Memory::free_aligned_static(keys);
+			Memory::free_aligned_static(key_to_hash);
+			Memory::free_aligned_static(hash_to_key);
+			Memory::free_aligned_static(hashes);
 			keys = nullptr;
 			hashes = nullptr;
 			hash_to_key = nullptr;
@@ -464,10 +527,10 @@ public:
 		clear();
 
 		if (keys != nullptr) {
-			Memory::free_static(keys);
-			Memory::free_static(key_to_hash);
-			Memory::free_static(hash_to_key);
-			Memory::free_static(hashes);
+			Memory::free_aligned_static(keys);
+			Memory::free_aligned_static(key_to_hash);
+			Memory::free_aligned_static(hash_to_key);
+			Memory::free_aligned_static(hashes);
 		}
 	}
 };

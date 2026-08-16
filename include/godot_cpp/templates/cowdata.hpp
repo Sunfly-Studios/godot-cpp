@@ -54,12 +54,6 @@ class CharStringT;
 
 static_assert(std::is_trivially_destructible_v<std::atomic<uint64_t>>);
 
-// Silence a false positive warning (see GH-52119).
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wplacement-new"
-#endif
-
 template <typename T>
 class CowData {
 	template <typename TV>
@@ -72,22 +66,29 @@ class CowData {
 	friend class CharStringT;
 
 public:
+#if defined(IS_32_BIT)
+	typedef int32_t Size;
+	typedef uint32_t USize;
+	static constexpr USize MAX_INT = INT32_MAX;
+#else
 	typedef int64_t Size;
 	typedef uint64_t USize;
 	static constexpr USize MAX_INT = INT64_MAX;
+#endif
 
 private:
 
-	// Alignment:  ↓ max_align_t           ↓ USize          ↓ MAX_ALIGN
-	//             ┌────────────────────┬──┬─────────────┬──┬───────────...
-	//             │ SafeNumeric<USize> │░░│ USize       │░░│ T[]
-	//             │ ref. count         │░░│ data size   │░░│ data
-	//             └────────────────────┴──┴─────────────┴──┴───────────...
-	// Offset:     ↑ REF_COUNT_OFFSET      ↑ SIZE_OFFSET    ↑ DATA_OFFSET
+	// Alignment:  ↓ max_align_t           ↓ USize          ↓ USize            ↓ MAX_ALIGN
+	//             ┌────────────────────┬──┬───────────────┬──┬─────────────┬──┬───────────...
+	//             │ SafeNumeric<USize> │░░│ USize         │░░│ USize       │░░│ T[]
+	//             │ ref. count         │░░│ data capacity │░░│ data size   │░░│ data
+	//             └────────────────────┴──┴───────────────┴──┴─────────────┴──┴───────────...
+	// Offset:     ↑ REF_COUNT_OFFSET      ↑ CAPACITY_OFFSET  ↑ SIZE_OFFSET    ↑ DATA_OFFSET
 
 	static constexpr size_t REF_COUNT_OFFSET = 0;
-	static constexpr size_t SIZE_OFFSET = ((REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) % alignof(USize) == 0) ? (REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) : ((REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) + alignof(USize) - ((REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) % alignof(USize)));
-	static constexpr size_t DATA_OFFSET = ((SIZE_OFFSET + sizeof(USize)) % Memory::MAX_ALIGN == 0) ? (SIZE_OFFSET + sizeof(USize)) : ((SIZE_OFFSET + sizeof(USize)) + Memory::MAX_ALIGN - ((SIZE_OFFSET + sizeof(USize)) % Memory::MAX_ALIGN));
+	static constexpr size_t CAPACITY_OFFSET = Memory::get_aligned_address(REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>), alignof(USize));
+	static constexpr size_t SIZE_OFFSET = Memory::get_aligned_address(CAPACITY_OFFSET + sizeof(USize), alignof(USize));
+	static constexpr size_t DATA_OFFSET = Memory::get_aligned_address(SIZE_OFFSET + sizeof(USize), Memory::MAX_ALIGN);
 
 	mutable T *_ptr = nullptr;
 
@@ -122,7 +123,14 @@ private:
 	}
 
 	_FORCE_INLINE_ USize _get_alloc_size(USize p_elements) const {
-		return next_power_of_2(p_elements * sizeof(T));
+		if (unlikely(p_elements == 0)) {
+			return 0;
+		}
+
+		USize req_bytes = p_elements * sizeof(T);
+		USize p2 = static_cast<USize>(next_power_of_2(req_bytes));
+		USize mid = p2 - (p2 >> 2); // 75% midpoint
+		return (req_bytes <= mid) ? mid : p2;
 	}
 
 	_FORCE_INLINE_ bool _get_alloc_size_checked(USize p_elements, USize *out) const {
@@ -149,7 +157,7 @@ private:
 		return *out;
 	}
 
-	void _unref(void *p_data);
+	void _unref();
 	void _ref(const CowData *p_from);
 	void _ref(const CowData &p_from);
 	USize _copy_on_write();
@@ -157,6 +165,15 @@ private:
 
 public:
 	void operator=(const CowData<T> &p_from) { _ref(p_from); }
+	void operator=(CowData<T> &&p_from) noexcept {
+		if (_ptr == p_from._ptr) {
+			return;
+		}
+
+		_unref();
+		_ptr = p_from._ptr;
+		p_from._ptr = nullptr;
+	}
 
 	_FORCE_INLINE_ T *ptrw() {
 		_copy_on_write();
@@ -205,19 +222,22 @@ public:
 		T *p = ptrw();
 		Size len = size();
 		for (Size i = p_index; i < len - 1; i++) {
-			p[i] = p[i + 1];
+			p[i] = std::move(p[i + 1]);
 		}
 
 		resize(len - 1);
 	}
 
 	Error insert(Size p_pos, const T &p_val) {
-		ERR_FAIL_INDEX_V(p_pos, size() + 1, ERR_INVALID_PARAMETER);
-		resize(size() + 1);
-		for (Size i = (size() - 1); i > p_pos; i--) {
-			set(i, get(i - 1));
+		Size new_size = size() + 1;
+		ERR_FAIL_INDEX_V(p_pos, new_size, ERR_INVALID_PARAMETER);
+		Error err = resize(new_size);
+		ERR_FAIL_COND_V(err, err);
+		T *p = ptrw();
+		for (Size i = new_size - 1; i > p_pos; i--) {
+			p[i] = std::move(p[i - 1]);
 		}
-		set(p_pos, p_val);
+		p[p_pos] = p_val;
 
 		return OK;
 	}
@@ -227,24 +247,25 @@ public:
 	Size count(const T &p_val) const;
 
 	_FORCE_INLINE_ CowData() {}
-	_FORCE_INLINE_ ~CowData();
-	_FORCE_INLINE_ CowData(CowData<T> &p_from) { _ref(p_from); };
+	_FORCE_INLINE_ ~CowData() { _unref(); }
+	_FORCE_INLINE_ CowData(const CowData<T> &p_from) { _ref(p_from); };
+	_FORCE_INLINE_ CowData(CowData<T> &&p_from) noexcept {
+		_ptr = p_from._ptr;
+		p_from._ptr = nullptr;
+	}
 };
 
 template <typename T>
-void CowData<T>::_unref(void *p_data) {
-	if (!p_data) {
+void CowData<T>::_unref() {
+	if (!_ptr) {
 		return;
 	}
 
-	bool was_ptr = (p_data == _ptr);
 	SafeNumeric<USize> *refc = _get_refcount();
 
 	if (refc->decrement() > 0) {
 		// Data is still in use elsewhere.
-		if (was_ptr) {
-			_ptr = nullptr;
-		}
+		_ptr = nullptr;
 		return;
 	}
 
@@ -257,27 +278,22 @@ void CowData<T>::_unref(void *p_data) {
 	//          which is illegal after some of the elements in it have already been destructed, and
 	//          may lead to a segmentation fault.
 	USize current_size = *_get_size();
-	T *prev_ptr = (T *)p_data;
-	
-	if (was_ptr) {
-		_ptr = nullptr;
-	}
+	T *prev_ptr = _ptr;
+	_ptr = nullptr;
 
 	if constexpr (!std::is_trivially_destructible_v<T>) {
 		for (USize i = 0; i < current_size; ++i) {
-			prev_ptr[i].~T();
+			unaligned_destroy<T>(prev_ptr + i);
 		}
 	}
 
 	// free mem
-	Memory::free_static(((uint8_t *)prev_ptr) - DATA_OFFSET, false);
+	Memory::free_aligned_static(((uint8_t *)prev_ptr) - DATA_OFFSET);
 
 #ifdef DEBUG_ENABLED
 	// If any destructors access us through pointers, it is a bug.
 	// We can't really test for that, but we can at least check no items have been added.
-	if (was_ptr) {
-		ERR_FAIL_COND_MSG(_ptr != nullptr, "Internal bug, please report: CowData was modified during destruction.");
-	}
+	ERR_FAIL_COND_MSG(_ptr != nullptr, "Internal bug, please report: CowData was modified during destruction.");
 #endif
 }
 
@@ -294,7 +310,7 @@ typename CowData<T>::USize CowData<T>::_copy_on_write() {
 		/* in use by more than me */
 		USize current_size = *_get_size();
 
-		uint8_t *mem_new = (uint8_t *)Memory::alloc_static(_get_alloc_size(current_size) + DATA_OFFSET, false);
+		uint8_t *mem_new = static_cast<uint8_t *>(Memory::alloc_aligned_static(_get_alloc_size(current_size) + DATA_OFFSET, Memory::MAX_ALIGN));
 		ERR_FAIL_NULL_V(mem_new, 0);
 
 		SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -309,11 +325,11 @@ typename CowData<T>::USize CowData<T>::_copy_on_write() {
 			memcpy((void *)_data_ptr, (const void *)_ptr, current_size * sizeof(T));
 		} else {
 			for (USize i = 0; i < current_size; i++) {
-				memnew_placement(&_data_ptr[i], T(_ptr[i]));
+				unaligned_construct<T>(_data_ptr + i, unaligned_read<T>(_ptr + i));
 			}
 		}
 
-		_unref(_ptr);
+		_unref();
 		_ptr = _data_ptr;
 
 		rc = 1;
@@ -325,7 +341,8 @@ template <typename T>
 Error CowData<T>::_realloc(Size p_alloc_size) {
 	if constexpr (std::is_trivially_copyable_v<T>) {
 		// Safe to C-realloc
-		uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - DATA_OFFSET, p_alloc_size + DATA_OFFSET, false);
+		Size current_alloc_size = _get_alloc_size(*_get_size());
+		uint8_t *mem_new = static_cast<uint8_t *>(Memory::realloc_aligned_static(((uint8_t *)_ptr) - DATA_OFFSET, p_alloc_size + DATA_OFFSET, current_alloc_size + DATA_OFFSET, Memory::MAX_ALIGN));
 		ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
 
 		SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -337,7 +354,7 @@ Error CowData<T>::_realloc(Size p_alloc_size) {
 		// Non-trivial types must be formally moved
 		USize active_elements = *_get_size();
 
-		uint8_t *mem_new = (uint8_t *)Memory::alloc_static(p_alloc_size + DATA_OFFSET, false);
+		uint8_t *mem_new = static_cast<uint8_t *>(Memory::alloc_aligned_static(p_alloc_size + DATA_OFFSET, Memory::MAX_ALIGN));
 		ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
 
 		SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -349,11 +366,11 @@ Error CowData<T>::_realloc(Size p_alloc_size) {
 
 		// Cleanly move only the living objects
 		for (USize i = 0; i < active_elements; i++) {
-			memnew_placement(&_data_ptr[i], T(std::move(_ptr[i])));
-			_ptr[i].~T(); // Destroy old
+			unaligned_construct<T>(_data_ptr + i, std::move(*std::launder(_ptr + i)));
+			unaligned_destroy<T>(_ptr + i); // Destroy old
 		}
 
-		Memory::free_static(((uint8_t *)_ptr) - DATA_OFFSET, false);
+		Memory::free_aligned_static(((uint8_t *)_ptr) - DATA_OFFSET);
 		_ptr = _data_ptr;
 	}
 
@@ -373,8 +390,7 @@ Error CowData<T>::resize(Size p_size) {
 
 	if (p_size == 0) {
 		// wants to clean up
-		_unref(_ptr);
-		_ptr = nullptr;
+		_unref();
 		return OK;
 	}
 
@@ -389,7 +405,7 @@ Error CowData<T>::resize(Size p_size) {
 		if (alloc_size != current_alloc_size) {
 			if (current_size == 0) {
 				// alloc from scratch
-				uint8_t *mem_new = (uint8_t *)Memory::alloc_static(alloc_size + DATA_OFFSET, false);
+				uint8_t *mem_new = static_cast<uint8_t *>(Memory::alloc_aligned_static(alloc_size + DATA_OFFSET, Memory::MAX_ALIGN));
 				ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
 
 				SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -413,14 +429,14 @@ Error CowData<T>::resize(Size p_size) {
 		if constexpr (std::is_trivially_constructible_v<T> && std::is_trivially_copyable_v<T>) {
 			// Safe to leave uninitialized or zero out because
 			// lifetime is implicit for trivial C-types
-			if (p_ensure_zero) {
+			if constexpr (p_ensure_zero) {
 				memset((void *)(_ptr + current_size), 0, (p_size - current_size) * sizeof(T));
 			}
 		} else {
 			// Always formally begin the object lifetime
 			// for anything with non-trivial operators
 			for (Size i = *_get_size(); i < p_size; i++) {
-				memnew_placement(&_ptr[i], T());
+				unaligned_construct<T>(_ptr + i, T());
 			}
 		}
 
@@ -430,8 +446,7 @@ Error CowData<T>::resize(Size p_size) {
 		if constexpr (!std::is_trivially_destructible_v<T>) {
 			// deinitialize no longer needed elements
 			for (USize i = p_size; i < *_get_size(); i++) {
-				T *t = &_ptr[i];
-				t->~T();
+				unaligned_destroy<T>(_ptr + i);
 			}
 		}
 
@@ -510,8 +525,7 @@ void CowData<T>::_ref(const CowData &p_from) {
 		return; // self assign, do nothing.
 	}
 
-	_unref(_ptr);
-	_ptr = nullptr;
+	_unref();
 
 	if (!p_from._ptr) {
 		return; // nothing to do
@@ -521,15 +535,6 @@ void CowData<T>::_ref(const CowData &p_from) {
 		_ptr = p_from._ptr;
 	}
 }
-
-template <typename T>
-CowData<T>::~CowData() {
-	_unref(_ptr);
-}
-
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 
 } // namespace godot
 

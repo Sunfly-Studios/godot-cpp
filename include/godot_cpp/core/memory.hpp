@@ -42,20 +42,31 @@
 #include <type_traits>
 #include <functional> // for std::less
 
-// Detect 32-bit architectures with 128-bit vector units.
+// Detect architectures with 256-bit (or larger) vector units.
+#if defined(__AVX__) || defined(__AVX2__) || \
+	(defined(__ARM_FEATURE_SVE_BITS) && __ARM_FEATURE_SVE_BITS >= 256) || \
+	(defined(__riscv_v_min_vlen) && __riscv_v_min_vlen >= 256)
+	#define HAS_256_BIT_SIMD 1
+#endif
+
+// Detect architectures with 128-bit vector units.
 #if (defined(__i386__) && (defined(__SSE__) || defined(__SSE2__))) || \
 	(defined(_M_IX86) && _M_IX86_FP > 0) || \
-	defined(__ARM_NEON)
+	defined(__ARM_NEON) || defined(__aarch64__) || defined(_M_ARM64) || \
+	(defined(__riscv_v_min_vlen) && __riscv_v_min_vlen >= 128)
 	#define HAS_128_BIT_SIMD 1
 #endif
 
 // Determine the safe minimum stack alignment.
-#if !defined(IS_32_BIT) || defined(HAS_128_BIT_SIMD)
-	// 64-bit platforms.
-	// 32-bit platforms with 128-bit SIMD (x86_32 SSE, etc.).
+#if defined(HAS_256_BIT_SIMD)
+	// 32 bytes for platforms with 256-bit SIMD
+	#define GODOT_MIN_STACK_ALIGN 32
+#elif !defined(IS_32_BIT) || defined(HAS_128_BIT_SIMD)
+	// 16 bytes for 64-bit platforms or
+	// 32-bit platforms with 128-bit SIMD
 	#define GODOT_MIN_STACK_ALIGN 16 
 #else
-	// "Vanilla" 32-bit architectures with no SSE-like goodies.
+	// 8 bytes for "vanilla" 32-bit architectures with no SIMD goodies.
 	#define GODOT_MIN_STACK_ALIGN 8 
 #endif
 
@@ -93,6 +104,13 @@
 // Single-element version.
 #define SAFE_ALLOCA_SINGLE(m_type) SAFE_ALLOCA_ARRAY(m_type, 1)
 
+// Helper defined outside the class to ensure it is visible for constexpr usage
+// inside the class static member initialization.
+static inline constexpr size_t _memory_get_aligned_address(size_t p_address, size_t p_alignment) {
+	const size_t n_bytes_unaligned = p_address % p_alignment;
+	return (n_bytes_unaligned == 0) ? p_address : (p_address + p_alignment - n_bytes_unaligned);
+}
+
 // p_dummy argument is added to avoid conflicts with the engine functions when both engine and GDExtension are built as a static library on iOS.
 void *operator new(size_t p_size, const char *p_dummy, const char *p_description); ///< operator new that takes a description and uses MemoryStaticPool
 void *operator new(size_t p_size, const char *p_dummy, void *(*p_allocfunc)(size_t p_size)); ///< operator new that takes a description and uses MemoryStaticPool
@@ -115,13 +133,18 @@ namespace godot {
 class Wrapped;
 
 class Memory {
+public:
+	// Forwarder to the helper for external usage (e.g. cowdata.h)
+	static constexpr size_t get_aligned_address(size_t p_address, size_t p_alignment) {
+		return _memory_get_aligned_address(p_address, p_alignment);
+	}
 	Memory();
 
 public:
-	// Force a minimum alignment of 16 bytes.
+	// Force a minimum alignment of either `max_align_t` or `GODOT_MIN_STACK_ALIGN`
 	// This handles strict-alignment RISC architectures (SPARC, MIPS, Alpha, etc.),
 	// ensures SIMD safety, and fixes the MinGW 32-bit compiler bug (GH-113145)
-	// by clamping its fluctuating alignof value (8 vs 16) to a consistent 16.
+	// by clamping its fluctuating alignof value to a consistent value.
 	static constexpr size_t MAX_ALIGN = (alignof(max_align_t) > GODOT_MIN_STACK_ALIGN) ? alignof(max_align_t) : GODOT_MIN_STACK_ALIGN;
 
 	static_assert(MAX_ALIGN % alignof(max_align_t) == 0);
@@ -135,12 +158,19 @@ public:
 	// Note: "alloc size" is used and set by the engine and is never accessed or changed for the extension.
 
 	static constexpr size_t SIZE_OFFSET = 0;
-	static constexpr size_t ELEMENT_OFFSET = ((SIZE_OFFSET + sizeof(uint64_t)) % alignof(uint64_t) == 0) ? (SIZE_OFFSET + sizeof(uint64_t)) : ((SIZE_OFFSET + sizeof(uint64_t)) + alignof(uint64_t) - ((SIZE_OFFSET + sizeof(uint64_t)) % alignof(uint64_t)));
-	static constexpr size_t DATA_OFFSET = ((ELEMENT_OFFSET + sizeof(uint64_t)) % MAX_ALIGN == 0) ? (ELEMENT_OFFSET + sizeof(uint64_t)) : ((ELEMENT_OFFSET + sizeof(uint64_t)) + MAX_ALIGN - ((ELEMENT_OFFSET + sizeof(uint64_t)) % MAX_ALIGN));
+
+	// Use the private function defined outside instead of the internal
+	// class one.
+	static inline constexpr size_t ELEMENT_OFFSET = _memory_get_aligned_address(SIZE_OFFSET + sizeof(uint64_t), alignof(uint64_t));
+	static inline constexpr size_t DATA_OFFSET = _memory_get_aligned_address(ELEMENT_OFFSET + sizeof(uint64_t), MAX_ALIGN);
 
 	static void *alloc_static(size_t p_bytes, bool p_pad_align = false);
 	static void *realloc_static(void *p_memory, size_t p_bytes, bool p_pad_align = false);
 	static void free_static(void *p_ptr, bool p_pad_align = false);
+	
+	static void *alloc_aligned_static(size_t p_bytes, size_t p_alignment);
+	static void *realloc_aligned_static(void *p_memory, size_t p_bytes, size_t p_prev_bytes, size_t p_alignment);
+	static void free_aligned_static(void *p_memory);
 };
 
 template <typename T, std::enable_if_t<!std::is_base_of<::godot::Wrapped, T>::value, bool> = true>
@@ -173,9 +203,7 @@ struct Comparator {
 
 template <typename T>
 void memdelete(T *p_class, typename std::enable_if<!std::is_base_of_v<godot::Wrapped, T>>::type * = nullptr) {
-	if constexpr (!std::is_trivially_destructible_v<T>) {
-		p_class->~T();
-	}
+	unaligned_destroy<T>(p_class);
 
 	Memory::free_static(p_class);
 }
@@ -187,10 +215,7 @@ void memdelete(T *p_class) {
 
 template <typename T, typename A>
 void memdelete_allocator(T *p_class) {
-	if constexpr (!std::is_trivially_destructible_v<T>) {
-		p_class->~T();
-	}
-
+	unaligned_destroy<T>(p_class);
 	A::free(p_class);
 }
 
@@ -204,7 +229,7 @@ template <typename T>
 class DefaultTypedAllocator {
 public:
 	template <typename... Args>
-	_ALWAYS_INLINE_ T *new_allocation(const Args &&...p_args) { return memnew(T(p_args...)); }
+	_ALWAYS_INLINE_ T *new_allocation(Args &&...p_args) { return memnew(T(std::forward<Args>(p_args)...)); }
 	_ALWAYS_INLINE_ void delete_allocation(T *p_allocation) { memdelete(p_allocation); }
 };
 
@@ -246,17 +271,22 @@ _FORCE_INLINE_ void unaligned_write(void *p_ptr, const T &p_val) {
 	}
 }
 
-template <typename ConstructT, typename ArgT>
-_FORCE_INLINE_ void unaligned_construct(void *p_ptr, const ArgT &p_arg) {
+template <typename ConstructT, typename... Args>
+_FORCE_INLINE_ void unaligned_construct(void *p_ptr, Args &&...p_args) {
 	const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
 	const bool is_aligned = (addr & (alignof(ConstructT) - 1)) == 0;
 
 	if constexpr (std::is_trivially_copyable_v<ConstructT>) {
 		if (is_aligned) {
-			::new (p_ptr) ConstructT(p_arg);
+			::new (p_ptr) ConstructT(std::forward<Args>(p_args)...);
 		} else {
-			ConstructT local(p_arg);
-			memcpy(p_ptr, &local, sizeof(ConstructT));
+			if constexpr (sizeof...(Args) == 0) {
+				ConstructT local;
+				memcpy(p_ptr, &local, sizeof(ConstructT));
+			} else {
+				ConstructT local(std::forward<Args>(p_args)...);
+				memcpy(p_ptr, &local, sizeof(ConstructT));
+			}
 		}
 	} else {
 #if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
@@ -264,7 +294,20 @@ _FORCE_INLINE_ void unaligned_construct(void *p_ptr, const ArgT &p_arg) {
 			CRASH_NOW_MSG("FATAL: Unaligned construction of non-trivial type.");
 		}
 #endif
-		::new (p_ptr) ConstructT(p_arg);
+		::new (p_ptr) ConstructT(std::forward<Args>(p_args)...);
+	}
+}
+
+template <typename T>
+_FORCE_INLINE_ void unaligned_destroy(void *p_ptr) {
+	if constexpr (!std::is_trivially_destructible_v<T>) {
+#if defined(DEV_ENABLED) || defined(TOOLS_ENABLED)
+		const uintptr_t addr = reinterpret_cast<uintptr_t>(p_ptr);
+		if (unlikely((addr & (alignof(T) - 1)) != 0)) {
+			CRASH_NOW_MSG("FATAL: Unaligned destruction of non-trivial type.");
+		}
+#endif
+		std::launder(static_cast<T *>(p_ptr))->~T();
 	}
 }
 
@@ -282,7 +325,7 @@ T *memnew_arr_template(size_t p_elements, const char *p_descr = "") {
 	ERR_FAIL_NULL_V(mem, failptr);
 
 	uint64_t *_elem_count_ptr = _get_element_count_ptr(mem);
-	*(_elem_count_ptr) = p_elements;
+	::new (_elem_count_ptr) uint64_t(p_elements);
 
 	if constexpr (!std::is_trivially_destructible_v<T>) {
 		T *elems = (T *)mem;
@@ -312,7 +355,7 @@ void memdelete_arr(T *p_class) {
 		uint64_t elem_count = *(_elem_count_ptr);
 
 		for (uint64_t i = 0; i < elem_count; i++) {
-			p_class[i].~T();
+			unaligned_destroy<T>(p_class[i]);
 		}
 	}
 

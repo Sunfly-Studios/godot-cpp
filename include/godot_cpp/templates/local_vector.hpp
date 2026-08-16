@@ -35,7 +35,9 @@
 #include <godot_cpp/core/memory.hpp>
 #include <godot_cpp/templates/sort_array.hpp>
 #include <godot_cpp/templates/vector.hpp>
+#include <godot_cpp/core/math.hpp>
 
+#include <utility>
 #include <initializer_list>
 #include <type_traits>
 
@@ -50,6 +52,25 @@ private:
 	U capacity = 0;
 	T *data = nullptr;
 
+	// Implement the 1.5x Binary Buddy + Golden Ratio.
+	_FORCE_INLINE_ U _get_capacity_for_size(U p_elements) const {
+		if (unlikely(p_elements == 0)) {
+			return 0;
+		}
+
+		// Calculate this in bytes.
+		size_t req_bytes = static_cast<size_t>(p_elements * sizeof(T));
+		size_t p2 = static_cast<size_t>(next_power_of_2(req_bytes));
+		size_t mid = p2 - (p2 >> 2); // 75% midpoint
+		size_t alloc_bytes = (req_bytes <= mid) ? mid : p2;
+
+		// Convert back to element capacity.
+		// Dividing back by sizeof(T) ensures any leftover
+		// bytes in the OS buckets will be converted into
+		// extra element capacity for free.
+		return static_cast<U>((alloc_bytes / sizeof(T)));
+	}
+
 public:
 	T *ptr() {
 		return data;
@@ -61,19 +82,14 @@ public:
 
 	_FORCE_INLINE_ void push_back(T p_elem) {
 		if (unlikely(count == capacity)) {
-			if (capacity == 0) {
-				capacity = 1;
-			} else {
-				capacity <<= 1;
-			}
-			data = (T *)memrealloc(data, capacity * sizeof(T));
-			CRASH_COND_MSG(!data, "Out of memory");
+			reserve(count + 1);
 		}
 
-		if constexpr (!std::is_trivially_constructible<T>::value && !force_trivial) {
-			memnew_placement(&data[count++], T(p_elem));
+		if constexpr (!std::is_trivially_constructible_v<T> && !force_trivial) {
+			// std::move perfectly forwards the stack copy into the vector
+			unaligned_construct<T>(&data[count++], std::move(p_elem));
 		} else {
-			data[count++] = p_elem;
+			data[count++] = std::move(p_elem);
 		}
 	}
 
@@ -81,10 +97,10 @@ public:
 		ERR_FAIL_UNSIGNED_INDEX(p_index, count);
 		count--;
 		for (U i = p_index; i < count; i++) {
-			data[i] = data[i + 1];
+			data[i] = std::move(data[i + 1]);
 		}
-		if constexpr (!std::is_trivially_destructible<T>::value && !force_trivial) {
-			data[count].~T();
+		if constexpr (!std::is_trivially_destructible_v<T> && !force_trivial) {
+			unaligned_destroy<T>(&data[count]);
 		}
 	}
 
@@ -94,18 +110,36 @@ public:
 		ERR_FAIL_INDEX(p_index, count);
 		count--;
 		if (count > p_index) {
-			data[p_index] = data[count];
+			data[p_index] = std::move(data[count]);
 		}
-		if constexpr (!std::is_trivially_destructible<T>::value && !force_trivial) {
-			data[count].~T();
+		if constexpr (!std::is_trivially_destructible_v<T> && !force_trivial) {
+			unaligned_destroy<T>(&data[count]);
 		}
 	}
-
-	void erase(const T &p_val) {
+	
+	_FORCE_INLINE_ bool erase(const T &p_val) {
 		int64_t idx = find(p_val);
 		if (idx >= 0) {
 			remove_at(idx);
+			return true;
 		}
+		return false;
+	}
+	
+	U erase_multiple_unordered(const T &p_val) {
+		U from = 0;
+		U occurrences = 0;
+		while (true) {
+			int64_t idx = find(p_val, from);
+
+			if (idx == -1) {
+				break;
+			}
+			remove_at_unordered(idx);
+			from = idx;
+			occurrences++;
+		}
+		return occurrences;
 	}
 
 	void invert() {
@@ -118,7 +152,7 @@ public:
 	_FORCE_INLINE_ void reset() {
 		clear();
 		if (data) {
-			memfree(data);
+			Memory::free_aligned_static(data);
 			data = nullptr;
 			capacity = 0;
 		}
@@ -126,38 +160,52 @@ public:
 	_FORCE_INLINE_ bool is_empty() const { return count == 0; }
 	_FORCE_INLINE_ U get_capacity() const { return capacity; }
 	_FORCE_INLINE_ void reserve(U p_size) {
-		p_size = tight ? p_size : nearest_power_of_2_templated(p_size);
 		if (p_size > capacity) {
-			capacity = p_size;
-			data = (T *)memrealloc(data, capacity * sizeof(T));
-			CRASH_COND_MSG(!data, "Out of memory");
+			U new_capacity = tight ? p_size : _get_capacity_for_size(p_size);
+			uint32_t old_capacity = capacity;
+			// C-realloc if the type is trivial, forced, or strictly immobile.
+			// Godot relies on bitwise relocation for types with atomics that cannot be C++ moved.
+			if constexpr (std::is_trivially_copyable_v<T> || force_trivial || !std::is_move_constructible_v<T>) {
+				data = static_cast<T *>(Memory::realloc_aligned_static(data, new_capacity * sizeof(T), old_capacity * sizeof(T), alignof(T)));
+				CRASH_COND_MSG(!data, "Out of memory");
+			} else {
+				// Non-trivial types that are C++ movable must be formally moved
+				T *new_data = static_cast<T *>(Memory::alloc_aligned_static(new_capacity * sizeof(T), alignof(T)));
+				CRASH_COND_MSG(!new_data, "Out of memory");
+
+				for (U i = 0; i < count; i++) {
+					unaligned_construct<T>(&new_data[i], std::move(data[i]));
+					unaligned_destroy<T>(&data[i]);
+				}
+
+				if (data) {
+					Memory::free_aligned_static(data);
+				}
+				data = new_data;
+			}
+			capacity = new_capacity;
 		}
 	}
 
 	_FORCE_INLINE_ U size() const { return count; }
 	void resize(U p_size) {
 		if (p_size < count) {
-			if constexpr (!std::is_trivially_destructible<T>::value && !force_trivial) {
+			if constexpr (!std::is_trivially_destructible_v<T>) {
 				for (U i = p_size; i < count; i++) {
-					data[i].~T();
+					unaligned_destroy<T>(&data[i]);
 				}
 			}
 			count = p_size;
 		} else if (p_size > count) {
-			if (unlikely(p_size > capacity)) {
-				if (capacity == 0) {
-					capacity = 1;
-				}
-				while (capacity < p_size) {
-					capacity <<= 1;
-				}
-				data = (T *)memrealloc(data, capacity * sizeof(T));
-				CRASH_COND_MSG(!data, "Out of memory");
-			}
-			if constexpr (!std::is_trivially_constructible<T>::value && !force_trivial) {
+			reserve(p_size); // Re-use the reallocation logic
+
+			if constexpr (!std::is_trivially_constructible_v<T>) {
 				for (U i = count; i < p_size; i++) {
-					memnew_placement(&data[i], T);
+					unaligned_construct<T>(&data[i]);
 				}
+			} else {
+				// Prevent rubbish for trivial types
+				memset(&data[count], 0, (p_size - count) * sizeof(T));
 			}
 			count = p_size;
 		}
@@ -238,13 +286,13 @@ public:
 	void insert(U p_pos, T p_val) {
 		ERR_FAIL_UNSIGNED_INDEX(p_pos, count + 1);
 		if (p_pos == count) {
-			push_back(p_val);
+			push_back(std::move(p_val));
 		} else {
 			resize(count + 1);
 			for (U i = count - 1; i > p_pos; i--) {
-				data[i] = data[i - 1];
+				data[i] = std::move(data[i - 1]);
 			}
-			data[p_pos] = p_val;
+			data[p_pos] = std::move(p_val);
 		}
 	}
 
@@ -288,9 +336,17 @@ public:
 
 	operator Vector<T>() const {
 		Vector<T> ret;
-		ret.resize(size());
+		ret.resize(count);
 		T *w = ret.ptrw();
-		memcpy(w, data, sizeof(T) * count);
+		if (w) {
+			if constexpr (std::is_trivially_copyable_v<T>) {
+				memcpy(w, data, sizeof(T) * count);
+			} else {
+				for (U i = 0; i < count; i++) {
+					w[i] = data[i];
+				}
+			}
+		}
 		return ret;
 	}
 
@@ -298,7 +354,9 @@ public:
 		Vector<uint8_t> ret;
 		ret.resize(count * sizeof(T));
 		uint8_t *w = ret.ptrw();
-		memcpy(w, data, sizeof(T) * count);
+		if (w) {
+			memcpy(w, data, sizeof(T) * count);
+		}
 		return ret;
 	}
 
@@ -315,7 +373,19 @@ public:
 			data[i] = p_from.data[i];
 		}
 	}
+	_FORCE_INLINE_ LocalVector(LocalVector &&p_from) noexcept {
+		data = p_from.data;
+		count = p_from.count;
+		capacity = p_from.capacity;
+
+		p_from.data = nullptr;
+		p_from.count = 0;
+		p_from.capacity = 0;
+	}
 	inline void operator=(const LocalVector &p_from) {
+		if (unlikely(this == &p_from)) {
+			return;
+		}
 		resize(p_from.size());
 		for (U i = 0; i < p_from.count; i++) {
 			data[i] = p_from.data[i];
@@ -325,6 +395,26 @@ public:
 		resize(p_from.size());
 		for (U i = 0; i < count; i++) {
 			data[i] = p_from[i];
+		}
+	}
+	inline void operator=(LocalVector &&p_from) noexcept {
+		if (unlikely(this == &p_from)) {
+			return;
+		}
+		reset();
+
+		data = p_from.data;
+		count = p_from.count;
+		capacity = p_from.capacity;
+
+		p_from.data = nullptr;
+		p_from.count = 0;
+		p_from.capacity = 0;
+	}
+	inline void operator=(Vector<T> &&p_from) {
+		resize(p_from.size());
+		for (U i = 0; i < count; i++) {
+			data[i] = std::move(p_from[i]);
 		}
 	}
 

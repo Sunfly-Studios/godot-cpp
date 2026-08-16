@@ -61,7 +61,7 @@ template <typename T>
 class SafeNumeric {
 	std::atomic<T> value;
 
-#if (!defined(__powerpc__) || defined(__powerpc64__)) && !defined(__arc__)
+#if GODOT_REQUIRE_LOCK_FREE_ATOMICS
 	static_assert(std::atomic_bool::is_always_lock_free);
 #endif
 
@@ -142,7 +142,7 @@ public:
 class SafeFlag {
 	std::atomic_bool flag;
 
-#if (!defined(__powerpc__) || defined(__powerpc64__)) && !defined(__arc__)
+#if GODOT_REQUIRE_LOCK_FREE_ATOMICS
 	static_assert(std::atomic_bool::is_always_lock_free);
 #endif
 
