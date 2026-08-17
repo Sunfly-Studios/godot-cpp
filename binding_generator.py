@@ -1088,6 +1088,7 @@ def generate_builtin_class_source(builtin_api, size, used_classes, fully_used_cl
     result.append("#include <godot_cpp/core/builtin_ptrcall.hpp>")
     result.append("")
     result.append("#include <utility>")
+    result.append("#include <cstring>")
     result.append("")
     result.append("namespace godot {")
     result.append("")
@@ -1229,6 +1230,8 @@ def generate_builtin_class_source(builtin_api, size, used_classes, fully_used_cl
         )
     else:
         result.append("\tstd::swap(opaque, p_other.opaque);")
+    
+    result.append("\tstd::memset(p_other.opaque, 0, sizeof(opaque));")
     result.append("}")
     result.append("")
 
@@ -1363,6 +1366,8 @@ def generate_builtin_class_source(builtin_api, size, used_classes, fully_used_cl
         )
     else:
         result.append("\tstd::swap(opaque, p_other.opaque);")
+    
+    result.append("\tstd::memset(p_other.opaque, 0, sizeof(opaque));")
     result.append("\treturn *this;")
     result.append("}")
 
