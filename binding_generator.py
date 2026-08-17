@@ -692,7 +692,7 @@ def generate_builtin_class_header(builtin_api, size, used_classes, fully_used_cl
 
     # We don't get alignment information from the JSON so we have to guess.
     # Only apply 8-byte alignment if the size naturally divides by 8.
-    final_size = 8 if int(size) % 8 == 0 else 4
+    final_size = 8 if size >= 8 else 4
     result.append(f"class {class_name} {{")
     result.append(f"\tstatic constexpr size_t {snake_class_name}_SIZE = {size};")
     result.append(f"\talignas({final_size}) uint8_t opaque[{snake_class_name}_SIZE] = {{}};")
